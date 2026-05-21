@@ -7,27 +7,48 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
+  /* ===== CSS Custom Properties (themed) ===== */
+  :root {
+    --bg-start: #0a0a1a;
+    --bg-end: #1a1a3e;
+    --panel-bg: rgba(255,255,255,0.04);
+    --panel-box: rgba(0,0,0,0.35);
+    --border-color: rgba(255,255,255,0.07);
+    --text-color: #fff;
+    --text-dim: rgba(255,255,255,0.35);
+    --board-bg: #0d0d22;
+    --board-border: rgba(255,255,255,0.12);
+    --cell-border: rgba(255,255,255,0.04);
+    --accent: #e94560;
+    --btn-bg: rgba(255,255,255,0.06);
+    --btn-border: rgba(255,255,255,0.1);
+    --overlay-bg: rgba(0,0,0,0.7);
+    --shadow-color: rgba(0,0,0,0.6);
+  }
+
   body {
     height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    background: linear-gradient(145deg, #0a0a1a, #1a1a3e);
+    background: linear-gradient(145deg, var(--bg-start), var(--bg-end));
     font-family: 'Segoe UI', system-ui, sans-serif;
-    color: #fff;
+    color: var(--text-color);
     user-select: none;
+    transition: background 0.5s ease, color 0.5s ease;
   }
 
   .game-wrapper {
     display: flex;
     gap: 30px;
     align-items: flex-start;
-    background: rgba(255,255,255,0.04);
+    background: var(--panel-bg);
     backdrop-filter: blur(12px);
     padding: 30px 35px;
     border-radius: 24px;
-    border: 1px solid rgba(255,255,255,0.07);
-    box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 25px 60px var(--shadow-color);
+    transition: background 0.5s ease, border-color 0.5s ease;
   }
 
   /* ---- Board ---- */
@@ -37,17 +58,18 @@
 
   #board {
     display: grid;
-    border: 2px solid rgba(255,255,255,0.12);
+    border: 2px solid var(--board-border);
     border-radius: 6px;
-    background: #0d0d22;
+    background: var(--board-bg);
     box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    transition: background 0.5s ease, border-color 0.5s ease;
   }
 
   .cell {
     width: 30px;
     height: 30px;
-    border: 1px solid rgba(255,255,255,0.04);
-    transition: background 0.06s;
+    border: 1px solid var(--cell-border);
+    transition: background 0.06s, border-color 0.5s ease;
   }
 
   /* ---- Side Panel ---- */
@@ -59,17 +81,18 @@
   }
 
   .panel-box {
-    background: rgba(0,0,0,0.35);
+    background: var(--panel-box);
     border-radius: 14px;
     padding: 16px 18px;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid var(--border-color);
+    transition: background 0.5s ease, border-color 0.5s ease;
   }
 
   .panel-box h3 {
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 2px;
-    color: rgba(255,255,255,0.35);
+    color: var(--text-dim);
     margin-bottom: 10px;
   }
 
@@ -77,6 +100,49 @@
     font-size: 28px;
     font-weight: 300;
     font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- Theme Switcher ---- */
+  .theme-switcher {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .theme-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+    position: relative;
+  }
+
+  .theme-dot:hover {
+    transform: scale(1.15);
+  }
+
+  .theme-dot.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+  }
+
+  .theme-dot::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    white-space: nowrap;
+    color: var(--text-dim);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .theme-dot:hover::after {
+    opacity: 1;
   }
 
   /* ---- Next piece preview ---- */
@@ -104,9 +170,9 @@
     width: 48px;
     height: 48px;
     border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.06);
-    color: #fff;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--text-color);
     font-size: 20px;
     cursor: pointer;
     display: flex;
@@ -129,9 +195,9 @@
     width: 100%;
     padding: 10px;
     border-radius: 12px;
-    border: 1px solid rgba(233,69,96,0.3);
-    background: rgba(233,69,96,0.12);
-    color: #e94560;
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
@@ -140,14 +206,14 @@
   }
 
   #restart-btn:hover {
-    background: rgba(233,69,96,0.25);
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
   }
 
   /* ---- Game Over overlay ---- */
   .overlay {
     position: absolute;
     inset: 0;
-    background: rgba(0,0,0,0.7);
+    background: var(--overlay-bg);
     backdrop-filter: blur(4px);
     border-radius: 6px;
     display: flex;
@@ -168,18 +234,29 @@
   .overlay h2 {
     font-size: 30px;
     letter-spacing: 3px;
-    color: #e94560;
+    color: var(--accent);
   }
 
   .overlay p {
     font-size: 14px;
-    color: rgba(255,255,255,0.5);
+    color: var(--text-dim);
+  }
+
+  #restart-overlay-btn {
+    margin-top: 8px;
+    padding: 10px 28px;
+    border-radius: 10px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--text-color);
+    font-size: 15px;
+    cursor: pointer;
   }
 
   /* ---- Mobile hint ---- */
   .mobile-hint {
     font-size: 11px;
-    color: rgba(255,255,255,0.2);
+    color: var(--text-dim);
     text-align: center;
     margin-top: 4px;
   }
@@ -205,11 +282,16 @@
     <div class="overlay" id="overlay">
       <h2>GAME OVER</h2>
       <p>得分: <span id="final-score">0</span></p>
-      <button id="restart-overlay-btn" style="margin-top:8px;padding:10px 28px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-size:15px;cursor:pointer;">重新开始</button>
+      <button id="restart-overlay-btn">重新开始</button>
     </div>
   </div>
 
   <div class="side-panel">
+    <div class="panel-box">
+      <h3>配色</h3>
+      <div class="theme-switcher" id="theme-switcher"></div>
+    </div>
+
     <div class="panel-box">
       <h3>下一个</h3>
       <canvas id="next-canvas" width="120" height="120"></canvas>
@@ -247,22 +329,135 @@
 </div>
 
 <script>
-// ========== Constants ==========
+// =============================================
+//  THEMES
+// =============================================
+const THEMES = {
+  neon: {
+    label: '霓虹',
+    colors: { I: '#00e5ff', O: '#ffee58', T: '#ce93d8', S: '#66bb6a', Z: '#ef5350', J: '#42a5f5', L: '#ffa726' },
+    bgStart: '#0a0a1a',   bgEnd: '#1a1a3e',
+    panelBg: 'rgba(255,255,255,0.04)',
+    panelBox: 'rgba(0,0,0,0.35)',
+    boardBg: '#0d0d22',
+    boardBorder: 'rgba(255,255,255,0.12)',
+    cellBorder: 'rgba(255,255,255,0.04)',
+    borderColor: 'rgba(255,255,255,0.07)',
+    textColor: '#fff',
+    textDim: 'rgba(255,255,255,0.35)',
+    accent: '#e94560',
+    btnBg: 'rgba(255,255,255,0.06)',
+    btnBorder: 'rgba(255,255,255,0.1)',
+    overlayBg: 'rgba(0,0,0,0.7)',
+    shadow: 'rgba(0,0,0,0.6)',
+    dotGrad: 'linear-gradient(135deg,#0a0a1a,#1a1a3e)',
+  },
+  retro: {
+    label: '复古',
+    colors: { I: '#9bbc0f', O: '#9bbc0f', T: '#9bbc0f', S: '#9bbc0f', Z: '#9bbc0f', J: '#9bbc0f', L: '#9bbc0f' },
+    bgStart: '#1a1c0e',   bgEnd: '#2a2c1e',
+    panelBg: 'rgba(155,188,15,0.04)',
+    panelBox: 'rgba(0,0,0,0.45)',
+    boardBg: '#0d2b0d',
+    boardBorder: 'rgba(155,188,15,0.25)',
+    cellBorder: 'rgba(155,188,15,0.08)',
+    borderColor: 'rgba(155,188,15,0.12)',
+    textColor: '#b5d14a',
+    textDim: 'rgba(155,188,15,0.4)',
+    accent: '#b5d14a',
+    btnBg: 'rgba(155,188,15,0.08)',
+    btnBorder: 'rgba(155,188,15,0.18)',
+    overlayBg: 'rgba(13,43,13,0.85)',
+    shadow: 'rgba(0,20,0,0.7)',
+    dotGrad: 'linear-gradient(135deg,#1a1c0e,#2a2c1e)',
+  },
+  sunset: {
+    label: '晚霞',
+    colors: { I: '#ff9a9e', O: '#fad0c4', T: '#fbc2eb', S: '#a18cd1', Z: '#f093fb', J: '#f5576c', L: '#ff758c' },
+    bgStart: '#2d1b3d',   bgEnd: '#3d1b2d',
+    panelBg: 'rgba(255,200,200,0.05)',
+    panelBox: 'rgba(0,0,0,0.3)',
+    boardBg: '#1a0f1a',
+    boardBorder: 'rgba(255,150,150,0.18)',
+    cellBorder: 'rgba(255,150,150,0.06)',
+    borderColor: 'rgba(255,150,150,0.1)',
+    textColor: '#ffe0e6',
+    textDim: 'rgba(255,180,180,0.4)',
+    accent: '#f093fb',
+    btnBg: 'rgba(255,150,150,0.08)',
+    btnBorder: 'rgba(255,150,150,0.15)',
+    overlayBg: 'rgba(26,15,26,0.8)',
+    shadow: 'rgba(50,10,30,0.6)',
+    dotGrad: 'linear-gradient(135deg,#2d1b3d,#3d1b2d)',
+  },
+  ocean: {
+    label: '深海',
+    colors: { I: '#48dbfb', O: '#0abde3', T: '#54a0ff', S: '#5f27cd', Z: '#01a3a4', J: '#00d2d3', L: '#10ac84' },
+    bgStart: '#0a1628',   bgEnd: '#0a2840',
+    panelBg: 'rgba(0,200,255,0.03)',
+    panelBox: 'rgba(0,20,40,0.4)',
+    boardBg: '#06121e',
+    boardBorder: 'rgba(0,200,255,0.15)',
+    cellBorder: 'rgba(0,200,255,0.05)',
+    borderColor: 'rgba(0,200,255,0.08)',
+    textColor: '#b0e0ff',
+    textDim: 'rgba(100,200,255,0.35)',
+    accent: '#48dbfb',
+    btnBg: 'rgba(0,200,255,0.07)',
+    btnBorder: 'rgba(0,200,255,0.13)',
+    overlayBg: 'rgba(6,18,30,0.8)',
+    shadow: 'rgba(0,10,30,0.6)',
+    dotGrad: 'linear-gradient(135deg,#0a1628,#0a2840)',
+  },
+  sakura: {
+    label: '樱花',
+    colors: { I: '#f8bbd0', O: '#f48fb1', T: '#f06292', S: '#ec407a', Z: '#d81b60', J: '#c2185b', L: '#ad1457' },
+    bgStart: '#2a1a24',   bgEnd: '#3a1a2e',
+    panelBg: 'rgba(255,180,200,0.04)',
+    panelBox: 'rgba(0,0,0,0.3)',
+    boardBg: '#1a1018',
+    boardBorder: 'rgba(240,150,180,0.18)',
+    cellBorder: 'rgba(240,150,180,0.06)',
+    borderColor: 'rgba(240,150,180,0.1)',
+    textColor: '#fce4ec',
+    textDim: 'rgba(240,150,180,0.4)',
+    accent: '#f06292',
+    btnBg: 'rgba(240,150,180,0.08)',
+    btnBorder: 'rgba(240,150,180,0.15)',
+    overlayBg: 'rgba(26,16,24,0.8)',
+    shadow: 'rgba(40,10,30,0.6)',
+    dotGrad: 'linear-gradient(135deg,#2a1a24,#3a1a2e)',
+  },
+  cyber: {
+    label: '赛博',
+    colors: { I: '#ff00ff', O: '#ffff00', T: '#00ffff', S: '#00ff88', Z: '#ff0055', J: '#5500ff', L: '#ff8800' },
+    bgStart: '#050510',   bgEnd: '#0f0520',
+    panelBg: 'rgba(0,255,255,0.03)',
+    panelBox: 'rgba(0,0,0,0.5)',
+    boardBg: '#0a0012',
+    boardBorder: 'rgba(255,0,255,0.25)',
+    cellBorder: 'rgba(255,0,255,0.08)',
+    borderColor: 'rgba(0,255,255,0.1)',
+    textColor: '#c0ffff',
+    textDim: 'rgba(180,0,255,0.35)',
+    accent: '#ff00ff',
+    btnBg: 'rgba(255,0,255,0.08)',
+    btnBorder: 'rgba(255,0,255,0.18)',
+    overlayBg: 'rgba(5,0,10,0.85)',
+    shadow: 'rgba(255,0,255,0.15)',
+    dotGrad: 'linear-gradient(135deg,#050510,#0f0520)',
+  },
+};
+
+const THEME_NAMES = Object.keys(THEMES);
+
+// =============================================
+//  CONSTANTS
+// =============================================
 const COLS = 10;
 const ROWS = 20;
 const CELL = 30;
 
-const COLORS = {
-  I: '#00e5ff',
-  O: '#ffee58',
-  T: '#ce93d8',
-  S: '#66bb6a',
-  Z: '#ef5350',
-  J: '#42a5f5',
-  L: '#ffa726',
-};
-
-// ========== Tetromino Shapes ==========
 const SHAPES = {
   I: [[1,1,1,1]],
   O: [[1,1],[1,1]],
@@ -275,9 +470,11 @@ const SHAPES = {
 
 const PIECE_NAMES = Object.keys(SHAPES);
 
-// ========== State ==========
+// =============================================
+//  STATE
+// =============================================
 let board = [];
-let current = null;   // { name, matrix, row, col }
+let current = null;
 let next = null;
 let score = 0;
 let lines = 0;
@@ -285,6 +482,9 @@ let level = 1;
 let gameOver = false;
 let paused = false;
 let dropInterval = null;
+
+let currentTheme = localStorage.getItem('tetris-theme') || 'neon';
+if (!THEME_NAMES.includes(currentTheme)) currentTheme = 'neon';
 
 const boardEl = document.getElementById('board');
 const nextCanvas = document.getElementById('next-canvas');
@@ -294,8 +494,72 @@ const linesEl = document.getElementById('lines-display');
 const levelEl = document.getElementById('level-display');
 const overlay = document.getElementById('overlay');
 const finalScoreEl = document.getElementById('final-score');
+const themeSwitcher = document.getElementById('theme-switcher');
 
-// ========== Board helpers ==========
+// =============================================
+//  THEME ENGINE
+// =============================================
+function applyTheme(name) {
+  currentTheme = name;
+  const t = THEMES[name];
+  if (!t) return;
+
+  const root = document.documentElement;
+  root.style.setProperty('--bg-start', t.bgStart);
+  root.style.setProperty('--bg-end', t.bgEnd);
+  root.style.setProperty('--panel-bg', t.panelBg);
+  root.style.setProperty('--panel-box', t.panelBox);
+  root.style.setProperty('--board-bg', t.boardBg);
+  root.style.setProperty('--board-border', t.boardBorder);
+  root.style.setProperty('--cell-border', t.cellBorder);
+  root.style.setProperty('--border-color', t.borderColor);
+  root.style.setProperty('--text-color', t.textColor);
+  root.style.setProperty('--text-dim', t.textDim);
+  root.style.setProperty('--accent', t.accent);
+  root.style.setProperty('--btn-bg', t.btnBg);
+  root.style.setProperty('--btn-border', t.btnBorder);
+  root.style.setProperty('--overlay-bg', t.overlayBg);
+  root.style.setProperty('--shadow-color', t.shadow);
+
+  // Update COLORS reference used by game logic
+  Object.assign(COLORS, t.colors);
+
+  // Update theme dots
+  document.querySelectorAll('.theme-dot').forEach(dot => {
+    dot.classList.toggle('active', dot.dataset.theme === name);
+  });
+
+  // Re-render
+  drawNext();
+  renderBoard();
+
+  localStorage.setItem('tetris-theme', name);
+}
+
+function buildThemeUI() {
+  themeSwitcher.innerHTML = '';
+  THEME_NAMES.forEach(name => {
+    const t = THEMES[name];
+    const dot = document.createElement('div');
+    dot.className = 'theme-dot';
+    dot.dataset.theme = name;
+    dot.dataset.label = t.label;
+    dot.style.background = t.dotGrad;
+    dot.style.borderColor = name === currentTheme ? 'var(--accent)' : 'rgba(255,255,255,0.12)';
+    dot.title = t.label;
+    dot.addEventListener('click', () => applyTheme(name));
+    themeSwitcher.appendChild(dot);
+  });
+}
+
+// =============================================
+//  COLORS (live object, mutated by theme)
+// =============================================
+const COLORS = { ...THEMES.neon.colors };
+
+// =============================================
+//  BOARD HELPERS
+// =============================================
 function createBoard() {
   return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
 }
@@ -317,7 +581,6 @@ function renderBoard() {
     }
   }
 
-  // draw current piece
   if (current && !gameOver) {
     const { matrix, row, col, name } = current;
     const color = COLORS[name];
@@ -338,7 +601,9 @@ function renderBoard() {
   }
 }
 
-// ========== Piece logic ==========
+// =============================================
+//  PIECE LOGIC
+// =============================================
 function randomPiece() {
   const name = PIECE_NAMES[Math.floor(Math.random() * PIECE_NAMES.length)];
   return {
@@ -375,10 +640,7 @@ function lockPiece() {
       if (matrix[r][c]) {
         const br = row + r;
         const bc = col + c;
-        if (br < 0) {
-          endGame();
-          return;
-        }
+        if (br < 0) { endGame(); return; }
         board[br][bc] = COLORS[name];
       }
     }
@@ -394,7 +656,6 @@ function clearLines() {
       board.splice(r, 1);
       board.unshift(Array(COLS).fill(null));
       cleared++;
-      // stay on same r
     } else {
       r--;
     }
@@ -409,7 +670,9 @@ function clearLines() {
   }
 }
 
-// ========== Game flow ==========
+// =============================================
+//  GAME FLOW
+// =============================================
 function spawnPiece() {
   if (next) {
     current = next;
@@ -420,10 +683,7 @@ function spawnPiece() {
   }
   next = randomPiece();
   drawNext();
-
-  if (collide(current.matrix, current.row, current.col)) {
-    endGame();
-  }
+  if (collide(current.matrix, current.row, current.col)) endGame();
   renderBoard();
 }
 
@@ -469,7 +729,6 @@ function rotate() {
     renderBoard();
     return;
   }
-  // wall kick: try shifting left/right
   for (const offset of [-1, 1, -2, 2]) {
     if (!collide(rotated, current.row, current.col + offset)) {
       current.matrix = rotated;
@@ -482,14 +741,14 @@ function rotate() {
 
 function hardDrop() {
   if (!current || gameOver) return;
-  while (!collide(current.matrix, current.row + 1, current.col)) {
-    current.row++;
-  }
+  while (!collide(current.matrix, current.row + 1, current.col)) current.row++;
   lockPiece();
   renderBoard();
 }
 
-// ========== Next piece preview ==========
+// =============================================
+//  NEXT PREVIEW
+// =============================================
 function drawNext() {
   ctx.clearRect(0, 0, 120, 120);
   if (!next) return;
@@ -514,14 +773,18 @@ function drawNext() {
   }
 }
 
-// ========== Stats ==========
+// =============================================
+//  STATS
+// =============================================
 function updateStats() {
   scoreEl.textContent = score;
   linesEl.textContent = lines;
   levelEl.textContent = level;
 }
 
-// ========== Restart ==========
+// =============================================
+//  RESTART
+// =============================================
 function restart() {
   gameOver = false;
   overlay.classList.remove('show');
@@ -536,34 +799,37 @@ function restart() {
   renderBoard();
 }
 
-// ========== Keyboard ==========
+// =============================================
+//  KEYBOARD
+// =============================================
 document.addEventListener('keydown', (e) => {
-  if (e.key === ' ') {
-    e.preventDefault();
-    hardDrop();
-  }
+  if (e.key === ' ') { e.preventDefault(); hardDrop(); }
   if (e.key === 'ArrowLeft')  move(-1);
   if (e.key === 'ArrowRight') move(1);
   if (e.key === 'ArrowDown')  moveDown();
   if (e.key === 'ArrowUp')    rotate();
 });
 
-// ========== Touch / Button controls ==========
+// =============================================
+//  BUTTONS
+// =============================================
 document.querySelectorAll('.ctrl-btn[data-action]').forEach(btn => {
   btn.addEventListener('click', () => {
-    const action = btn.dataset.action;
-    if (action === 'left')   move(-1);
-    if (action === 'right')  move(1);
-    if (action === 'down')   moveDown();
-    if (action === 'rotate') rotate();
-    if (action === 'drop')   hardDrop();
+    const a = btn.dataset.action;
+    if (a === 'left')   move(-1);
+    if (a === 'right')  move(1);
+    if (a === 'down')   moveDown();
+    if (a === 'rotate') rotate();
+    if (a === 'drop')   hardDrop();
   });
 });
 
 document.getElementById('restart-btn').addEventListener('click', restart);
 document.getElementById('restart-overlay-btn').addEventListener('click', restart);
 
-// ========== Patch roundRect ==========
+// =============================================
+//  POLYFILL roundRect
+// =============================================
 if (!CanvasRenderingContext2D.prototype.roundRect) {
   CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
     if (r > w / 2) r = w / 2;
@@ -582,7 +848,11 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   };
 }
 
-// ========== Init ==========
+// =============================================
+//  INIT
+// =============================================
+buildThemeUI();
+applyTheme(currentTheme);
 restart();
 </script>
 </body>
