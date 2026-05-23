@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量子回波 · Hahn Echo 可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(145deg, #070713, #0f0a2a, #070713);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #e0e0e0;
+    padding: 10px;
+    overflow: hidden;
+  }
+
+  .container {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+    padding: 12px 20px;
+    max-width: 1100px;
+    width: 100%;
+    max-height: 100vh;
+  }
+
+  h1 {
+    font-size: 18px;
+    font-weight: 300;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+  h1 span.hl { color: #00e5ff; font-weight: 600; }
+  h1 span.hl2 { color: #ffa726; }
+
+  .subtitle {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  /* ---- Timeline ---- */
+  .timeline {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+
+  .tl-node {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: rgba(255,255,255,0.15);
+    transition: 0.3s;
+  }
+  .tl-node .dot {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    background: rgba(255,255,255,0.02);
+    transition: 0.3s;
+  }
+  .tl-node.active .dot {
+    border-color: #00e5ff;
+    background: rgba(0,229,255,0.1);
+    color: #00e5ff;
+    box-shadow: 0 0 16px rgba(0,229,255,0.15);
+  }
+  .tl-node.done .dot {
+    border-color: rgba(0,229,255,0.3);
+    background: rgba(0,229,255,0.06);
+    color: rgba(0,229,255,0.5);
+  }
+  .tl-node.active .tl-label { color: rgba(255,255,255,0.6); }
+  .tl-node.done .tl-label { color: rgba(0,229,255,0.4); }
+  .tl-arrow { color: rgba(255,255,255,0.06); font-size: 11px; }
+
+  /* ---- Main Viz ---- */
+  .main-area {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* ---- Bloch Sphere ---- */
+  .bloch-section {
+    flex: 0 0 auto;
+    text-align: center;
+  }
+  .bloch-section .section-label {
+    font-size: 10px;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+
+  #bloch-canvas {
+    display: block;
+    margin: 0 auto;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(20,20,50,0.6), rgba(5,5,20,0.8));
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    width: 220px !important;
+    height: 220px !important;
+  }
+
+  /* ---- Echo Graph ---- */
+  .graph-section {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+  }
+  .graph-section .section-label {
+    font-size: 10px;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+    text-align: center;
+  }
+
+  .graph-wrapper {
+    flex: 1;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 6px 8px 4px;
+    border: 1px solid rgba(255,255,255,0.04);
+    min-height: 120px;
+  }
+
+  #graph-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ---- Info Panel ---- */
+  .info-panel {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 6px 14px;
+    margin-bottom: 6px;
+    border: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-height: 32px;
+  }
+  .info-panel .icon { font-size: 16px; }
+  .info-panel .msg {
+    font-size: 12px;
+    line-height: 1.3;
+    color: rgba(255,255,255,0.65);
+    flex: 1;
+  }
+  .info-panel .msg b { color: #e0e0e0; }
+  .info-panel .msg .hl-ec { color: #00e5ff; }
+  .info-panel .msg .hl-pi { color: #ffa726; }
+
+  .info-panel .stats {
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .info-panel .stats span { color: rgba(255,255,255,0.4); }
+  .info-panel .stats .val { color: #48dbfb; font-weight: 600; }
+
+  /* ---- Controls ---- */
+  .ctrl-section {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn {
+    padding: 4px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #e0e0e0;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.15s;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn:hover { background: rgba(255,255,255,0.08); }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.25; cursor: not-allowed; transform: none; }
+
+  .btn.primary {
+    background: rgba(0,229,255,0.08);
+    border-color: rgba(0,229,255,0.2);
+    color: #48dbfb;
+  }
+  .btn.primary:hover { background: rgba(0,229,255,0.16); }
+  .btn.primary.danger {
+    background: rgba(233,69,96,0.12);
+    border-color: rgba(233,69,96,0.25);
+    color: #e94560;
+  }
+  .btn.primary.danger:hover { background: rgba(233,69,96,0.22); }
+  .btn.pulse {
+    background: rgba(255,167,38,0.08);
+    border-color: rgba(255,167,38,0.18);
+    color: #ffa726;
+  }
+  .btn.pulse:hover { background: rgba(255,167,38,0.18); }
+
+  .divider {
+    width: 1px; height: 22px;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .param-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+  }
+  input[type="range"] {
+    width: 50px;
+    -webkit-appearance: none;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.1);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #00e5ff;
+    cursor: pointer;
+  }
+
+  .legend-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+    font-size: 10px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .legend-dot.ld-vector { background: #48dbfb; }
+  .legend-dot.ld-ensemble { background: rgba(72,219,251,0.15); border: 1px solid rgba(72,219,251,0.3); }
+  .legend-dot.ld-mag { background: #00e5ff; }
+  .legend-dot.ld-echo { background: #ffa726; }
+  .legend-dot.ld-pulse { background: #e94560; }
+
+  @media (max-width: 750px) {
+    .container { padding: 8px 12px; }
+    .main-area { flex-direction: column; align-items: center; gap: 6px; }
+    .bloch-section canvas { width: 180px !important; height: 180px !important; }
+    .legend-row { font-size: 9px; gap: 6px; }
+    .info-panel { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .graph-wrapper { min-height: 80px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🔄 <span class="hl">Quantum Echo</span> · <span class="hl2">Hahn 自旋回波</span></h1>
+  <div class="subtitle">π 脉冲重聚焦 · 克服量子退相干的经典方案</div>
+
+  <!-- Timeline -->
+  <div class="timeline" id="timeline">
+    <div class="tl-node active" data-tl="0">
+      <div class="dot">|↑⟩</div>
+      <span class="tl-label">初始极化</span>
+    </div>
+    <span class="tl-arrow">▸</span>
+    <div class="tl-node" data-tl="1">
+      <div class="dot">φ</div>
+      <span class="tl-label">自由演化</span>
+    </div>
+    <span class="tl-arrow">▸</span>
+    <div class="tl-node" data-tl="2">
+      <div class="dot">π</div>
+      <span class="tl-label">π 脉冲</span>
+    </div>
+    <span class="tl-arrow">▸</span>
+    <div class="tl-node" data-tl="3">
+      <div class="dot">φ'</div>
+      <span class="tl-label">重聚焦</span>
+    </div>
+    <span class="tl-arrow">▸</span>
+    <div class="tl-node" data-tl="4">
+      <div class="dot">E</div>
+      <span class="tl-label">回波</span>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend-row">
+    <span class="legend-item"><span class="legend-dot ld-vector"></span>平均自旋矢量</span>
+    <span class="legend-item"><span class="legend-dot ld-ensemble"></span>各自旋</span>
+    <span class="legend-item"><span class="legend-dot ld-mag"></span>磁化强度 M(t)</span>
+    <span class="legend-item"><span class="legend-dot ld-echo"></span>回波峰值</span>
+    <span class="legend-item"><span class="legend-dot ld-pulse"></span>π 脉冲</span>
+  </div>
+
+  <!-- Main Area -->
+  <div class="main-area">
+    <div class="bloch-section">
+      <div class="section-label">布洛赫球 · 系综视图</div>
+      <canvas id="bloch-canvas" width="300" height="300"></canvas>
+    </div>
+    <div class="graph-section">
+      <div class="section-label">磁化强度 · 时间演化</div>
+      <div class="graph-wrapper">
+        <canvas id="graph-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div class="info-panel">
+    <div class="icon">ℹ️</div>
+    <div class="msg" id="info-msg">点击 <b>「▶ 自动演示」</b> 观察 Hahn Echo 全过程</div>
+    <div class="stats">
+      <span>退相干 T₂: <span class="val" id="stat-t2">200</span></span>
+      <span>回波时间 τ: <span class="val" id="stat-tau">80</span></span>
+      <span>信号: <span class="val" id="stat-signal">100%</span></span>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="ctrl-section">
+    <button class="btn primary" id="btn-play">▶ 自动演示</button>
+    <button class="btn pulse" id="btn-pulse">π 脉冲</button>
+    <button class="btn" id="btn-reset">↺ 重置</button>
+
+    <div class="divider"></div>
+
+    <div class="param-row">
+      <span>退相干</span>
+      <input type="range" id="t2-slider" min="50" max="500" value="200">
+      <span id="t2-label">200</span>
+    </div>
+
+    <div class="param-row">
+      <span>回波时间 τ</span>
+      <input type="range" id="tau-slider" min="20" max="180" value="80">
+      <span id="tau-label">80</span>
+    </div>
+
+    <div class="param-row">
+      <span>速度</span>
+      <input type="range" id="speed-slider" min="1" max="10" value="5">
+      <span>快</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================
+//  CONFIG
+// =============================================
+const N_SPINS = 120;            // ensemble size
+const TAU_MAX = 200;            // maximum simulation time
+
+let T2 = 200;                   // dephasing time
+let tau = 80;                   // echo time (π pulse at τ/2)
+let speed = 1.0;
+
+// =============================================
+//  STATE
+// =============================================
+let spins = [];                 // each: { phi: angle from +x, freq: precession freq }
+let time = 0;
+let pulseApplied = false;
+let isPlaying = false;
+let animId = null;
+let tlPhase = 0;                // 0=init, 1=evolve, 2=pulse, 3=refocus, 4=echo
+let magnetization = [];         // array of { t, M }
+let maxM = 1;
+
+// =============================================
+//  DOM
+// =============================================
+const blochCanvas = document.getElementById('bloch-canvas');
+const bCtx = blochCanvas.getContext('2d');
+const graphCanvas = document.getElementById('graph-canvas');
+const gCtx = graphCanvas.getContext('2d');
+
+const infoMsg = document.getElementById('info-msg');
+const statT2 = document.getElementById('stat-t2');
+const statTau = document.getElementById('stat-tau');
+const statSignal = document.getElementById('stat-signal');
+
+const tlNodes = document.querySelectorAll('.tl-node');
+
+// =============================================
+//  PHYSICS
+// =============================================
+function initSpins() {
+  spins = [];
+  // Gaussian distribution of precession frequencies (inhomogeneous broadening)
+  for (let i = 0; i < N_SPINS; i++) {
+    // Box-Muller for Gaussian with sigma ~ 1/T2
+    const u1 = Math.random();
+    const u2 = Math.random();
+    const sigma = 1.5 / T2;
+    const freq = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2) * sigma;
+    spins.push({ phi: 0, freq });
+  }
+  magnetization = [];
+  time = 0;
+  pulseApplied = false;
+  tlPhase = 0;
+  updateTimeline();
+}
+
+function evolve(dt) {
+  time += dt;
+  // Update each spin's phase
+  for (const s of spins) {
+    if (pulseApplied) {
+      // After π pulse: spin continues precessing but in opposite direction
+      // The π pulse flips the phase: φ → -φ (reflection about x-axis)
+      // Then precession continues in the same frequency direction
+      s.phi += s.freq * dt;
+    } else {
+      s.phi += s.freq * dt;
+    }
+  }
+
+  const M = computeMagnetization();
+  magnetization.push({ t: time, M });
+
+  // Determine timeline phase
+  if (!pulseApplied && time < tau / 2) {
+    tlPhase = 1; // free evolution
+  } else if (!pulseApplied && time >= tau / 2) {
+    tlPhase = 2; // pulse should be applied
+  } else if (pulseApplied && time < tau) {
+    tlPhase = 3; // refocusing
+  } else if (pulseApplied && time >= tau) {
+    tlPhase = 4; // echo
+  }
+  updateTimeline();
+}
+
+function applyPiPulse() {
+  if (pulseApplied) return;
+  // π pulse: flip all phases about the x-axis (φ → -φ)
+  for (const s of spins) {
+    s.phi = -s.phi;
+  }
+  pulseApplied = true;
+  tlPhase = 3;
+  updateTimeline();
+  // Record a marker in magnetization
+  magnetization.push({ t: time, M: computeMagnetization(), isPulse: true });
+}
+
+function computeMagnetization() {
+  // Average over ensemble: M = |sum(e^{iφ})| / N
+  let sumReal = 0, sumImag = 0;
+  for (const s of spins) {
+    sumReal += Math.cos(s.phi);
+    sumImag += Math.sin(s.phi);
+  }
+  return Math.sqrt(sumReal * sumReal + sumImag * sumImag) / N_SPINS;
+}
+
+function computeEchoPeak() {
+  // Find maximum magnetization after pulse
+  let peak = 0;
+  let peakTime = 0;
+  for (const p of magnetization) {
+    if (p.t >= tau * 0.8 && p.M > peak) {
+      peak = p.M;
+      peakTime = p.t;
+    }
+  }
+  return { peak, peakTime };
+}
+
+// =============================================
+//  RENDER BLOCH
+// =============================================
+function renderBloch() {
+  const W = blochCanvas.width, H = blochCanvas.height;
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(cx, cy) - 12;
+  const ctx = bCtx;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Sphere background
+  const grad = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.3, R * 0.1, cx, cy, R);
+  grad.addColorStop(0, 'rgba(30,30,70,0.6)');
+  grad.addColorStop(1, 'rgba(5,5,20,0.9)');
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Grid: equator and meridians
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, R, R * 0.6, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, R * 0.5, R, 0.5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, R * 0.6, R, 1.05, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Center cross
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.beginPath();
+  ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy);
+  ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('x', cx + R + 8, cy + 3);
+  ctx.fillText('−x', cx - R - 10, cy + 3);
+  ctx.fillText('z', cx, cy - R - 6);
+  ctx.fillText('−z', cx, cy + R + 14);
+
+  // Ensemble of spins (small dots on sphere surface)
+  const r2Scale = R * 0.85;
+  const zScale = R * 0.85;
+
+  for (const s of spins) {
+    // Project 3D position: phi is angle in xy-plane
+    // For visual depth, we map phi to a position on the sphere equator
+    // and apply a perspective effect
+    const ang = s.phi;
+    const px = cx + r2Scale * Math.cos(ang);
+    const pz = cy - zScale * Math.sin(ang) * 0.55; // y (z in Bloch) gets compressed
+
+    // Depth cue: spins pointing out of page are brighter
+    const depth = (Math.sin(ang) + 1) / 2;
+    const alpha = 0.08 + depth * 0.2;
+
+    ctx.beginPath();
+    ctx.arc(px, pz, 2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(72,219,251,${alpha})`;
+    ctx.fill();
+  }
+
+  // Average Bloch vector (big arrow)
+  const avgM = computeMagnetization();
+  const avgPhi = spins.reduce((sum, s) => sum + s.phi, 0) / N_SPINS;
+  // Actually compute the resultant vector properly
+  let sumReal = 0, sumImag = 0;
+  for (const s of spins) {
+    sumReal += Math.cos(s.phi);
+    sumImag += Math.sin(s.phi);
+  }
+  const avgAngle = Math.atan2(sumImag, sumReal);
+  const arrowLen = Math.min(avgM * R * 0.85, R * 0.85);
+
+  if (arrowLen > 2) {
+    const ax = cx + arrowLen * Math.cos(avgAngle);
+    const ay = cy - arrowLen * Math.sin(avgAngle) * 0.55;
+
+    // Arrow shaft
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(ax, ay);
+    ctx.strokeStyle = avgM > 0.5 ? '#00e5ff' : '#48dbfb';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Arrow head
+    const headLen = 10;
+    const headAng = 0.5;
+    const angle = Math.atan2(cy - ay, cx - ax);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax + headLen * Math.cos(angle + headAng), ay + headLen * Math.sin(angle + headAng));
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax + headLen * Math.cos(angle - headAng), ay + headLen * Math.sin(angle - headAng));
+    ctx.strokeStyle = avgM > 0.5 ? '#00e5ff' : '#48dbfb';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Glow
+    ctx.shadowColor = 'rgba(0,229,255,0.2)';
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.arc(ax, ay, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#00e5ff';
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Pulse indicator
+  if (pulseApplied && time < tau * 1.1) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + 6, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,167,38,${0.2 + 0.3 * Math.max(0, 1 - Math.abs(time - tau/2) / (tau/4))})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Echo indicator
+  if (Math.abs(time - tau) < 5 && avgM > 0.5) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + 10, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,167,38,${0.4})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(255,167,38,0.7)';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('✦ ECHO', cx, cy - R - 14);
+  }
+
+  // Magnetization value
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`M = ${(avgM * 100).toFixed(1)}%`, 8, 18);
+  ctx.fillText(`t = ${time.toFixed(1)}`, 8, 34);
+}
+
+// =============================================
+//  RENDER GRAPH
+// =============================================
+function renderGraph() {
+  const rect = graphCanvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(200, rect.width - 24);
+  const H = Math.max(180, rect.height - 12);
+  graphCanvas.width = W * dpr;
+  graphCanvas.height = H * dpr;
+  graphCanvas.style.width = W + 'px';
+  graphCanvas.style.height = H + 'px';
+  const ctx = gCtx;
+  ctx.scale(dpr, dpr);
+
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { t: 14, b: 22, l: 38, r: 16 };
+  const gw = W - pad.l - pad.r;
+  const gh = H - pad.t - pad.b;
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, pad.t + gh);
+  ctx.lineTo(pad.l + gw, pad.t + gh);
+  ctx.stroke();
+
+  // Y-axis label
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('M(t)', pad.l - 8, pad.t + 10);
+
+  // X-axis label
+  ctx.fillText('t →', pad.l + gw / 2, pad.t + gh + 16);
+
+  // Y ticks
+  for (const pct of [0, 25, 50, 75, 100]) {
+    const y = pad.t + gh * (1 - pct / 100);
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(pct + '%', pad.l - 6, y + 3);
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y);
+    ctx.lineTo(pad.l + gw, y);
+    ctx.stroke();
+  }
+
+  if (magnetization.length < 2) return;
+
+  // Compute max time to display
+  const displayTmax = Math.max(tau * 1.5, time + 10);
+
+  // Draw echo guide line
+  ctx.strokeStyle = 'rgba(255,167,38,0.12)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  const echoX = pad.l + (tau / displayTmax) * gw;
+  ctx.beginPath();
+  ctx.moveTo(echoX, pad.t);
+  ctx.lineTo(echoX, pad.t + gh);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(255,167,38,0.3)';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('τ (回波)', echoX, pad.t + gh + 16);
+
+  // Pulse guide line at τ/2
+  const pulseX = pad.l + (tau / 2 / displayTmax) * gw;
+  ctx.strokeStyle = 'rgba(233,69,96,0.12)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(pulseX, pad.t);
+  ctx.lineTo(pulseX, pad.t + gh);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(233,69,96,0.3)';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('π', pulseX, pad.t + gh + 16);
+
+  // Draw magnetization curve
+  ctx.beginPath();
+  let started = false;
+  for (const p of magnetization) {
+    const x = pad.l + (p.t / displayTmax) * gw;
+    const y = pad.t + gh * (1 - p.M);
+    if (!started) { ctx.moveTo(x, y); started = true; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Glow under curve
+  if (magnetization.length > 2) {
+    ctx.beginPath();
+    const last = magnetization[magnetization.length - 1];
+    ctx.moveTo(pad.l + (magnetization[0].t / displayTmax) * gw, pad.t + gh);
+    for (const p of magnetization) {
+      const x = pad.l + (p.t / displayTmax) * gw;
+      const y = pad.t + gh * (1 - p.M);
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(pad.l + (last.t / displayTmax) * gw, pad.t + gh);
+    ctx.closePath();
+    const grad = gCtx.createLinearGradient(0, pad.t, 0, pad.t + gh);
+    grad.addColorStop(0, 'rgba(0,229,255,0.06)');
+    grad.addColorStop(1, 'rgba(0,229,255,0.0)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  // Echo peak marker
+  if (pulseApplied && time >= tau * 0.8) {
+    const peak = computeEchoPeak();
+    if (peak.peak > 0.1) {
+      const px = pad.l + (peak.peakTime / displayTmax) * gw;
+      const py = pad.t + gh * (1 - peak.peak);
+      ctx.beginPath();
+      ctx.arc(px, py, 5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,167,38,0.3)';
+      ctx.fill();
+      ctx.strokeStyle = '#ffa726';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255,167,38,0.6)';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('✦ ECHO', px, py - 10);
+    }
+  }
+}
+
+// =============================================
+//  TIMELINE
+// =============================================
+function updateTimeline() {
+  tlNodes.forEach((n, i) => {
+    n.classList.toggle('active', i === tlPhase);
+    n.classList.toggle('done', i < tlPhase);
+  });
+}
+
+// =============================================
+//  UPDATE & RENDER LOOP
+// =============================================
+function updateAndRender() {
+  renderBloch();
+  renderGraph();
+
+  const M = computeMagnetization();
+  statSignal.textContent = (M * 100).toFixed(1) + '%';
+  statT2.textContent = T2;
+  statTau.textContent = tau;
+}
+
+function tick() {
+  if (!isPlaying) return;
+
+  const dt = speed * 0.8;
+  evolve(dt);
+  updateAndRender();
+
+  // Update message
+  if (!pulseApplied && time >= tau/2) {
+    applyPiPulse();
+    infoMsg.innerHTML = '⚡ <b class="hl-pi">π 脉冲已应用</b>（时间 τ/2）· 所有自旋相位翻转<br>现在观察自旋 <b>重聚焦</b> 过程';
+    updateAndRender();
+  }
+
+  if (pulseApplied && Math.abs(time - tau) < 3) {
+    const M = computeMagnetization();
+    infoMsg.innerHTML = `✦ <b class="hl-ec">Hahn Echo!</b> 自旋重聚焦 · 磁化强度恢复至 ${(M * 100).toFixed(1)}%<br>τ = ${tau} · 退相干时间 T₂ = ${T2}`;
+    updateAndRender();
+  }
+
+  if (time > tau * 1.5) {
+    stopPlay();
+    const M = computeMagnetization();
+    infoMsg.innerHTML = `✅ <b>演示完成</b> · 回波峰值 ≈ ${(computeEchoPeak().peak * 100).toFixed(1)}%<br>点击「重置」重新开始，或调整参数后再次演示`;
+    updateAndRender();
+    return;
+  }
+
+  animId = requestAnimationFrame(tick);
+}
+
+// =============================================
+//  ACTIONS
+// =============================================
+function doReset() {
+  stopPlay();
+  initSpins();
+  // Add initial data point
+  magnetization.push({ t: 0, M: 1 });
+  time = 0;
+  updateAndRender();
+  infoMsg.innerHTML = '🔄 已重置 · 所有自旋沿 x 轴极化（M = 100%）<br>点击 <b>「▶ 自动演示」</b> 或逐步操作';
+  document.getElementById('btn-pulse').disabled = false;
+  updateAndRender();
+}
+
+function doPulse() {
+  if (pulseApplied) return;
+  if (time < 5) {
+    // Evolving first
+    for (let i = 0; i < 20; i++) evolve(2);
+  }
+  applyPiPulse();
+  infoMsg.innerHTML = '⚡ <b class="hl-pi">π 脉冲</b> 已手动施加 · 自旋相位翻转<br>继续观察重聚焦过程...';
+  updateAndRender();
+  document.getElementById('btn-pulse').disabled = true;
+}
+
+function startPlay() {
+  if (isPlaying) { stopPlay(); return; }
+
+  if (pulseApplied && time > tau * 1.3) {
+    doReset();
+  }
+
+  // If at start, let initial evolution happen
+  if (time < 1) {
+    // already at start
+  }
+
+  isPlaying = true;
+  document.getElementById('btn-play').textContent = '⏸ 暂停';
+  document.getElementById('btn-play').classList.add('danger');
+
+  if (pulseApplied) {
+    infoMsg.innerHTML = '▶️ 继续观察重聚焦...';
+  } else {
+    infoMsg.innerHTML = '▶️ 自旋自由演化 · 退相干导致磁化衰减...';
+  }
+  tick();
+}
+
+function stopPlay() {
+  isPlaying = false;
+  if (animId) cancelAnimationFrame(animId);
+  animId = null;
+  document.getElementById('btn-play').textContent = '▶ 自动演示';
+  document.getElementById('btn-play').classList.remove('danger');
+}
+
+// =============================================
+//  PARAMETERS
+// =============================================
+const t2Slider = document.getElementById('t2-slider');
+const tauSlider = document.getElementById('tau-slider');
+const speedSlider = document.getElementById('speed-slider');
+const t2Label = document.getElementById('t2-label');
+const tauLabel = document.getElementById('tau-label');
+
+t2Slider.addEventListener('input', () => {
+  const wasPlaying = isPlaying;
+  stopPlay();
+  T2 = parseInt(t2Slider.value);
+  t2Label.textContent = T2;
+  doReset();
+  infoMsg.innerHTML = `🔬 退相干时间 T₂ = ${T2}`;
+  updateAndRender();
+});
+
+tauSlider.addEventListener('input', () => {
+  const wasPlaying = isPlaying;
+  stopPlay();
+  tau = parseInt(tauSlider.value);
+  tauLabel.textContent = tau;
+  doReset();
+  infoMsg.innerHTML = `⏱ 回波时间 τ = ${tau}（π 脉冲在 t = ${tau/2}）`;
+  updateAndRender();
+});
+
+speedSlider.addEventListener('input', () => {
+  const v = parseInt(speedSlider.value);
+  speed = 0.3 + (v / 10) * 1.7;
+});
+
+// =============================================
+//  RESIZE HANDLER
+// =============================================
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { renderGraph(); }, 100);
+});
+
+// =============================================
+//  KEYBOARD
+// =============================================
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ') { e.preventDefault(); startPlay(); }
+  if (e.key === 'r' || e.key === 'R') doReset();
+  if (e.key === 'p' || e.key === 'P') doPulse();
+});
+
+// =============================================
+//  EVENT LISTENERS
+// =============================================
+document.getElementById('btn-play').addEventListener('click', startPlay);
+document.getElementById('btn-pulse').addEventListener('click', doPulse);
+document.getElementById('btn-reset').addEventListener('click', doReset);
+
+// =============================================
+//  INIT
+// =============================================
+initSpins();
+magnetization.push({ t: 0, M: 1 });
+time = 0;
+updateAndRender();
+
+infoMsg.innerHTML = '🌀 所有自旋沿 <b>x 轴</b> 初始极化 · 点击 <b>「▶ 自动演示」</b><br>'
+  + 'π 脉冲会在 t = τ/2 时自动施加，在 t = τ 时形成回波';
+</script>
+</body>
+</html>

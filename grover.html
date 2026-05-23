@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量子搜索 · Grover 算法可视化</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(145deg, #070713, #0f0a2a, #070713);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #e0e0e0;
+    padding: 10px;
+    overflow: hidden;
+  }
+
+  .container {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+    padding: 12px 18px;
+    max-width: 1100px;
+    width: 100%;
+    max-height: 100vh;
+  }
+
+  h1 {
+    font-size: 18px;
+    font-weight: 300;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+  h1 span.hl { color: #00e5ff; font-weight: 600; }
+  h1 span.hl2 { color: #ffa726; }
+
+  .subtitle {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  /* ---- Top Status ---- */
+  .status-bar {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+
+  .stat-box {
+    background: rgba(0,0,0,0.25);
+    border-radius: 8px;
+    padding: 4px 12px;
+    border: 1px solid rgba(255,255,255,0.04);
+    text-align: center;
+    min-width: 70px;
+  }
+  .stat-box .stat-label {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.3);
+  }
+  .stat-box .stat-value {
+    font-size: 16px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-box .stat-value.target { color: #ffa726; }
+  .stat-box .stat-value.iter { color: #b388ff; }
+  .stat-box .stat-value.prob { color: #00e5ff; }
+  .stat-box .stat-value.iter-optimal { color: rgba(255,255,255,0.2); }
+
+  /* ---- Amplitude Bars ---- */
+  .chart-section {
+    margin-bottom: 4px;
+    flex: 1;
+  }
+
+  .chart-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .chart-controls .title {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 1px;
+  }
+
+  .chart-controls .legend {
+    display: flex;
+    gap: 10px;
+    font-size: 10px;
+    align-items: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+  .legend-dot.target-dot { background: #ffa726; }
+  .legend-dot.other-dot { background: rgba(255,255,255,0.12); }
+  .legend-dot.neg-dot { background: #e94560; }
+
+  .chart-wrapper {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 8px 12px 4px;
+    border: 1px solid rgba(255,255,255,0.04);
+    overflow-x: auto;
+  }
+
+  #amplitude-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    min-height: 200px;
+    padding: 0 4px;
+    position: relative;
+  }
+
+  .bar-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    position: relative;
+  }
+
+  .bar-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 110px;
+    position: relative;
+    width: 100%;
+  }
+
+  .bar {
+    width: 100%;
+    max-width: 36px;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    transition: height 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s;
+    position: relative;
+  }
+
+  .bar.positive {
+    background: linear-gradient(to top, rgba(255,255,255,0.1), rgba(255,255,255,0.2));
+  }
+  .bar.positive.target {
+    background: linear-gradient(to top, #ffa726, #ffcc02);
+    box-shadow: 0 0 12px rgba(255,167,38,0.3);
+  }
+  .bar.negative {
+    background: linear-gradient(to top, #e94560, #ff6b81);
+    border-radius: 0 0 3px 3px;
+    align-self: flex-start;
+  }
+
+  .bar-label {
+    font-size: 9px;
+    color: rgba(255,255,255,0.2);
+    text-align: center;
+    margin-top: 4px;
+    white-space: nowrap;
+  }
+  .bar-label.target-label { color: #ffa726; font-weight: 600; }
+
+  .zero-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+    top: 50%;
+  }
+
+  /* neg bar container */
+  .bar-col .neg-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    flex: 1;
+  }
+
+  .bar.neg-bar {
+    align-self: center;
+    border-radius: 0 0 3px 3px;
+  }
+
+  /* ---- Info Panel ---- */
+  .info-panel {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 6px 14px;
+    margin-bottom: 4px;
+    border: 1px solid rgba(255,255,255,0.04);
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .info-panel .icon { font-size: 16px; }
+  .info-panel .msg {
+    font-size: 12px;
+    line-height: 1.3;
+    color: rgba(255,255,255,0.65);
+    flex: 1;
+  }
+  .info-panel .msg b { color: #e0e0e0; }
+
+  /* ---- Controls ---- */
+  .ctrl-section {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn {
+    padding: 4px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #e0e0e0;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.15s;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn:hover { background: rgba(255,255,255,0.08); }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.25; cursor: not-allowed; transform: none; }
+
+  .btn.primary {
+    background: rgba(0,229,255,0.08);
+    border-color: rgba(0,229,255,0.2);
+    color: #48dbfb;
+  }
+  .btn.primary:hover { background: rgba(0,229,255,0.16); }
+
+  .btn.oracle {
+    background: rgba(255,167,38,0.08);
+    border-color: rgba(255,167,38,0.18);
+    color: #ffa726;
+  }
+  .btn.oracle:hover { background: rgba(255,167,38,0.18); }
+  .btn.oracle.active-oracle {
+    background: rgba(255,167,38,0.2);
+    border-color: #ffa726;
+  }
+
+  .btn.danger {
+    background: rgba(233,69,96,0.08);
+    border-color: rgba(233,69,96,0.15);
+    color: #e94560;
+  }
+  .btn.danger:hover { background: rgba(233,69,96,0.16); }
+
+  .divider {
+    width: 1px;
+    height: 22px;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .speed-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+  }
+  input[type="range"] {
+    width: 50px;
+    -webkit-appearance: none;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.1);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #00e5ff;
+    cursor: pointer;
+  }
+
+  /* ---- Circuit SVG ---- */
+  .circuit-section {
+    background: rgba(0,0,0,0.15);
+    border-radius: 8px;
+    padding: 4px 8px;
+    margin-top: 4px;
+    border: 1px solid rgba(255,255,255,0.03);
+    overflow-x: auto;
+  }
+
+  #circuit-svg {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+  }
+
+  .target-picker {
+    display: inline-flex;
+    gap: 2px;
+    flex-wrap: wrap;
+  }
+  .target-picker button {
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.4);
+    font-size: 10px;
+    cursor: pointer;
+    font-family: monospace;
+    transition: 0.15s;
+  }
+  .target-picker button:hover { background: rgba(255,167,38,0.1); color: #ffa726; }
+  .target-picker button.active { background: rgba(255,167,38,0.15); border-color: #ffa726; color: #ffa726; }
+
+  .qbit-btn {
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.4);
+    font-size: 11px;
+    cursor: pointer;
+    font-family: monospace;
+    transition: 0.15s;
+  }
+  .qbit-btn:hover { background: rgba(0,229,255,0.1); color: #48dbfb; }
+  .qbit-btn.active { background: rgba(0,229,255,0.12); border-color: #00e5ff; color: #00e5ff; }
+
+  /* ---- Steps progress ---- */
+  .steps-progress {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+
+  .sp-step {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: rgba(255,255,255,0.15);
+    transition: 0.3s;
+  }
+
+  .sp-step .sp-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    transition: 0.3s;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .sp-step.active .sp-circle {
+    border-color: #00e5ff;
+    background: rgba(0,229,255,0.1);
+    color: #00e5ff;
+    box-shadow: 0 0 16px rgba(0,229,255,0.15);
+  }
+
+  .sp-step.done .sp-circle {
+    border-color: rgba(0,229,255,0.3);
+    background: rgba(0,229,255,0.06);
+    color: rgba(0,229,255,0.5);
+  }
+
+  .sp-step.active .sp-label { color: rgba(255,255,255,0.6); }
+  .sp-step.done .sp-label { color: rgba(0,229,255,0.4); }
+
+  .sp-arrow {
+    color: rgba(255,255,255,0.06);
+    font-size: 10px;
+  }
+
+  @media (max-width: 700px) {
+    .container { padding: 8px 10px; }
+    .bar-col { height: 80px; }
+    .bar-label { font-size: 6px; }
+    .status-bar { gap: 4px; }
+    .stat-box { min-width: 60px; padding: 3px 8px; }
+    .stat-box .stat-value { font-size: 14px; }
+    .stat-box .stat-label { font-size: 7px; }
+    .info-panel { font-size: 11px; padding: 4px 10px; }
+    .steps-progress { font-size: 8px; }
+    .sp-step .sp-circle { width: 16px; height: 16px; font-size: 8px; }
+    .chart-wrapper { padding: 4px 6px 2px; }
+    .circuit-section { padding: 2px 4px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🔍 <span class="hl">Grover</span> · <span class="hl2">量子搜索算法</span></h1>
+  <div class="subtitle">振幅放大 · 在无序数据库中搜索标记项</div>
+
+  <!-- Steps Progress -->
+  <div class="steps-progress" id="steps-progress">
+    <div class="sp-step active" data-sp="0">
+      <div class="sp-circle">H</div>
+      <span class="sp-label">叠加</span>
+    </div>
+    <span class="sp-arrow">▸</span>
+    <div class="sp-step" data-sp="1">
+      <div class="sp-circle">O</div>
+      <span class="sp-label">Oracle</span>
+    </div>
+    <span class="sp-arrow">▸</span>
+    <div class="sp-step" data-sp="2">
+      <div class="sp-circle">D</div>
+      <span class="sp-label">扩散</span>
+    </div>
+    <span class="sp-arrow">▸</span>
+    <div class="sp-step" data-sp="3">
+      <div class="sp-circle">√N</div>
+      <span class="sp-label">迭代</span>
+    </div>
+    <span class="sp-arrow">▸</span>
+    <div class="sp-step" data-sp="4">
+      <div class="sp-circle">M</div>
+      <span class="sp-label">测量</span>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar">
+    <div class="stat-box">
+      <div class="stat-label">搜索空间</div>
+      <div class="stat-value" id="stat-n">16</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">标记目标</div>
+      <div class="stat-value target" id="stat-target">|0101⟩</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">当前迭代</div>
+      <div class="stat-value iter" id="stat-iter">0 / 3</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">目标概率</div>
+      <div class="stat-value prob" id="stat-prob">6.25%</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">理论最优</div>
+      <div class="stat-value iter-optimal" id="stat-optimal">≈ 3</div>
+    </div>
+  </div>
+
+  <!-- Amplitude Chart -->
+  <div class="chart-section">
+    <div class="chart-controls">
+      <span class="title">📊 振幅分布</span>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot target-dot"></span>目标态</span>
+        <span class="legend-item"><span class="legend-dot other-dot"></span>非目标态</span>
+        <span class="legend-item"><span class="legend-dot neg-dot"></span>负振幅</span>
+      </div>
+    </div>
+    <div class="chart-wrapper">
+      <div id="amplitude-chart"></div>
+    </div>
+  </div>
+
+  <!-- Info Panel -->
+  <div class="info-panel">
+    <div class="icon">ℹ️</div>
+    <div class="msg" id="info-msg">点击 <b>「Oracle」</b> 标记目标态，或 <b>「Grover 迭代」</b> 执行一次完整的振幅放大</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="ctrl-section">
+    <button class="btn primary" id="btn-auto">▶ 自动演示</button>
+    <button class="btn oracle" id="btn-oracle">🎯 Oracle</button>
+    <button class="btn oracle" id="btn-iter">🔄 Grover 迭代</button>
+    <button class="btn" id="btn-reset">↺ 重置</button>
+
+    <span style="font-size:12px;color:rgba(255,255,255,0.3);">量子比特：</span>
+    <div style="display:inline-flex;gap:4px;">
+      <button class="qbit-btn" data-n="2">2</button>
+      <button class="qbit-btn active" data-n="3">3</button>
+      <button class="qbit-btn" data-n="4">4</button>
+      <button class="qbit-btn" data-n="5">5</button>
+      <button class="qbit-btn" data-n="6">6</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <span style="font-size:12px;color:rgba(255,255,255,0.3);">目标：</span>
+    <div class="target-picker" id="target-picker"></div>
+
+    <div class="divider"></div>
+
+    <div class="speed-row">
+      <span>慢</span>
+      <input type="range" id="speed-slider" min="1" max="10" value="5">
+      <span>快</span>
+    </div>
+  </div>
+
+  <!-- Circuit -->
+  <div class="circuit-section">
+    <svg id="circuit-svg" viewBox="0 0 720 140" width="720" height="140"></svg>
+  </div>
+</div>
+
+<script>
+// =============================================
+//  CONFIG (dynamic)
+// =============================================
+let N_QUBITS = 4;
+let N_STATES = 1 << N_QUBITS;
+
+// =============================================
+//  STATE
+// =============================================
+let amplitudes = [];
+let targetState = 5;
+let iteration = 0;
+let optimalIterations = 0;
+let oracleApplied = false;
+let oraclePhaseFlipped = false;
+let isAnimating = false;
+let animTimer = null;
+let stepPhase = 0
+
+// =============================================
+//  COMPUTE
+// =============================================
+function initSuperposition() {
+  const amp = 1 / Math.sqrt(N_STATES);
+  for (let i = 0; i < N_STATES; i++) {
+    amplitudes[i] = amp;
+  }
+  iteration = 0;
+  oracleApplied = false;
+  oraclePhaseFlipped = false;
+  stepPhase = 0;
+  optimalIterations = Math.round(Math.PI / 4 * Math.sqrt(N_STATES));
+}
+
+function applyOracle() {
+  // Flip the phase of the target state
+  amplitudes[targetState] = -amplitudes[targetState];
+  oraclePhaseFlipped = true;
+  oracleApplied = true;
+  stepPhase = 1;
+}
+
+function applyDiffusion() {
+  // Inversion about the mean
+  const mean = amplitudes.reduce((a, b) => a + b, 0) / N_STATES;
+  for (let i = 0; i < N_STATES; i++) {
+    amplitudes[i] = 2 * mean - amplitudes[i];
+  }
+  iteration++;
+  oraclePhaseFlipped = false;
+  stepPhase = 2;
+}
+
+function groverIteration() {
+  applyOracle();
+  applyDiffusion();
+  stepPhase = 3;
+}
+
+// =============================================
+//  DOM refs
+// =============================================
+const chartEl = document.getElementById('amplitude-chart');
+const infoMsg = document.getElementById('info-msg');
+const statN = document.getElementById('stat-n');
+const statTarget = document.getElementById('stat-target');
+const statIter = document.getElementById('stat-iter');
+const statProb = document.getElementById('stat-prob');
+const statOptimal = document.getElementById('stat-optimal');
+const circuitSvg = document.getElementById('circuit-svg');
+const targetPicker = document.getElementById('target-picker');
+
+const steps = document.querySelectorAll('.sp-step');
+
+// =============================================
+//  RENDER
+// =============================================
+function renderChart() {
+  const maxAmp = Math.max(...amplitudes.map(Math.abs), 0.001);
+  const halfH = 170;
+
+  let html = '';
+  for (let i = 0; i < N_STATES; i++) {
+    const amp = amplitudes[i];
+    const isTarget = i === targetState;
+    const isNeg = amp < 0;
+    const absAmp = Math.abs(amp);
+    const pct = (absAmp / maxAmp) * 0.9;  // 90% of container height
+    const barH = Math.max(2, pct * halfH);
+
+    let barClass = 'bar';
+    if (isTarget && !isNeg) barClass += ' positive target';
+    else if (isNeg) barClass += ' negative';
+    else barClass += ' positive';
+
+    let labelClass = 'bar-label';
+    if (isTarget) labelClass += ' target-label';
+
+    const stateName = `|${i.toString(2).padStart(N_QUBITS, '0')}⟩`;
+
+    html += `<div class="bar-group">
+      <div class="bar-col">`;
+
+    if (isNeg) {
+      // Negative: bar grows downward from center
+      html += `<div class="neg-container" style="height:${halfH}px;justify-content:flex-end;">
+        <div class="bar ${barClass}" style="height:${barH}px;"></div>
+      </div>`;
+      html += `<div style="flex:1;"></div>`;
+    } else {
+      // Positive: bar grows upward from center
+      html += `<div style="flex:1;"></div>`;
+      html += `<div class="bar ${barClass}" style="height:${barH}px;"></div>`;
+    }
+
+    html += `</div>
+      <div class="${labelClass}">
+        ${stateName}${isTarget ? ' ⭐' : ''}
+        <br><span style="font-size:8px;opacity:0.4">${amp.toFixed(3)}</span>
+      </div>
+    </div>`;
+  }
+
+  chartEl.innerHTML = html;
+
+  // Update stats
+  statN.textContent = N_STATES;
+  statTarget.textContent = `|${targetState.toString(2).padStart(N_QUBITS, '0')}⟩`;
+  statIter.textContent = `${iteration} / ${optimalIterations}`;
+  const prob = amplitudes[targetState] ** 2;
+  statProb.textContent = (prob * 100).toFixed(1) + '%';
+  statOptimal.textContent = `≈ ${optimalIterations}`;
+}
+
+function setStep(n) {
+  stepPhase = n;
+  steps.forEach((el, i) => {
+    el.classList.toggle('active', i === n);
+    el.classList.toggle('done', i < n);
+  });
+}
+
+function setCircuitPhase(phase) {
+  const svg = circuitSvg;
+  const W = 720;
+  const spacing = Math.min(40, Math.max(28, 110 / N_QUBITS));
+  const topMargin = 38;
+  const ys = Array.from({ length: N_QUBITS }, (_, i) => topMargin + i * spacing);
+  const H = topMargin + (N_QUBITS - 1) * spacing + 30;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('height', H);
+
+  const col = {
+    wire: 'rgba(255,255,255,0.1)',
+    gate: 'rgba(0,229,255,0.5)',
+    gateFill: 'rgba(0,229,255,0.08)',
+    oracle: 'rgba(255,167,38,0.6)',
+    oracleFill: 'rgba(255,167,38,0.1)',
+    diff: 'rgba(124,77,255,0.6)',
+    diffFill: 'rgba(124,77,255,0.1)',
+    measure: 'rgba(233,69,96,0.5)',
+    text: 'rgba(255,255,255,0.3)',
+  };
+
+  let html = '';
+  const boxPad = Math.max(12, Math.min(18, 20 - (N_QUBITS - 2) * 2));
+  const gateSize = Math.max(18, Math.min(28, 30 - (N_QUBITS - 2) * 2));
+  const halfG = gateSize / 2;
+
+  for (let i = 0; i < N_QUBITS; i++) {
+    const y = ys[i];
+    html += `<line x1="30" y1="${y}" x2="${W-30}" y2="${y}" stroke="${col.wire}" stroke-width="1.5"/>`;
+    html += `<text x="12" y="${y+4}" fill="${col.text}" font-size="11" font-family="monospace">q${i}</text>`;
+  }
+
+  for (let i = 0; i < N_QUBITS; i++) {
+    const y = ys[i];
+    html += `<text x="34" y="${y-8}" fill="${col.text}" font-size="9" font-family="monospace">|0⟩</text>`;
+  }
+
+  // H gates
+  let cx = 70;
+  for (let i = 0; i < N_QUBITS; i++) {
+    const y = ys[i];
+    const isActive = phase === 'superposition' || phase === 'iteration' || phase === 'done';
+    const c = isActive ? col.gate : 'rgba(255,255,255,0.08)';
+    const f = isActive ? col.gateFill : 'rgba(255,255,255,0.02)';
+    html += `<rect x="${cx-halfG}" y="${y-halfG}" width="${gateSize}" height="${gateSize}" rx="4" fill="${f}" stroke="${c}" stroke-width="1.2"/>
+            <text x="${cx}" y="${y+4}" fill="${c}" font-size="${gateSize*0.45}" text-anchor="middle" font-weight="600" font-family="monospace">H</text>`;
+  }
+  if (phase === 'superposition') {
+    html += `<text x="${cx}" y="${topMargin-16}" fill="${col.gate}" font-size="10" text-anchor="middle">H⊗ⁿ</text>`;
+  }
+
+  // Oracle
+  let ox = 200;
+  const oracleActive = phase === 'oracle' || phase === 'iteration';
+  const y0 = ys[0], yL = ys[N_QUBITS-1];
+  const boxH = yL - y0 + boxPad * 2;
+  html += oracleBox(ox, oracleActive);
+  if (oracleActive) {
+    html += `<text x="${ox}" y="${topMargin-16}" fill="${col.oracle}" font-size="10" text-anchor="middle">Oracle (O)</text>`;
+  }
+
+  // Diffusion
+  let dx = 360;
+  const diffActive = phase === 'diffusion' || phase === 'iteration';
+  html += diffBox(dx, diffActive);
+  if (diffActive) {
+    html += `<text x="${dx}" y="${topMargin-16}" fill="${col.diff}" font-size="10" text-anchor="middle">扩散 (D)</text>`;
+  }
+
+  if (phase === 'iteration') {
+    html += `<text x="290" y="${H-10}" fill="rgba(0,229,255,0.4)" font-size="11" text-anchor="middle" font-family="monospace">(O · D) 迭代 × ${iteration}</text>`;
+  }
+
+  // Measurement
+  let mx = 520;
+  const measureActive = phase === 'done';
+  for (let i = 0; i < N_QUBITS; i++) {
+    const y = ys[i];
+    const c = measureActive ? col.measure : 'rgba(255,255,255,0.06)';
+    html += `<rect x="${mx-8}" y="${y-12}" width="16" height="24" rx="3" fill="rgba(233,69,96,0.04)" stroke="${c}" stroke-width="1"/>
+            <text x="${mx}" y="${y+3}" fill="${c}" font-size="10" text-anchor="middle" font-family="monospace">M</text>`;
+  }
+  if (measureActive) {
+    html += `<text x="${mx}" y="${topMargin-16}" fill="${col.measure}" font-size="10" text-anchor="middle">测量 (M)</text>`;
+    const measuredStr = targetState.toString(2).padStart(N_QUBITS, '0');
+    html += `<text x="${mx+60}" y="${(y0+yL)/2+4}" fill="${col.oracle}" font-size="14" text-anchor="middle" font-weight="600" font-family="monospace">|${measuredStr}⟩ ✨</text>`;
+  }
+
+  function oracleBox(x, active) {
+    const c = active ? col.oracle : 'rgba(255,255,255,0.06)';
+    const f = active ? col.oracleFill : 'rgba(255,255,255,0.01)';
+    let r = `<rect x="${x-boxPad}" y="${y0-boxPad}" width="${boxPad*2}" height="${boxH}" rx="8" fill="${f}" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+    const fontSize = Math.max(12, Math.min(16, 18 - (N_QUBITS-2) * 1.5));
+    r += `<text x="${x}" y="${(y0+yL)/2+fontSize*0.35}" fill="${c}" font-size="${fontSize}" text-anchor="middle" font-weight="600" font-family="monospace">O</text>`;
+    const tStr = targetState.toString(2).padStart(N_QUBITS, '0');
+    const labSize = Math.max(6, Math.min(8, 10 - (N_QUBITS-2)));
+    r += `<text x="${x}" y="${(y0+yL)/2+fontSize*0.35+labSize+4}" fill="${c}" font-size="${labSize}" text-anchor="middle" font-family="monospace" opacity="0.6">|${tStr}⟩</text>`;
+    return r;
+  }
+
+  function diffBox(x, active) {
+    const c = active ? col.diff : 'rgba(255,255,255,0.06)';
+    const f = active ? col.diffFill : 'rgba(255,255,255,0.01)';
+    const fontSize = Math.max(12, Math.min(16, 18 - (N_QUBITS-2) * 1.5));
+    let r = `<rect x="${x-boxPad}" y="${y0-boxPad}" width="${boxPad*2}" height="${boxH}" rx="8" fill="${f}" stroke="${c}" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+    r += `<text x="${x}" y="${(y0+yL)/2+fontSize*0.35}" fill="${c}" font-size="${fontSize}" text-anchor="middle" font-weight="600" font-family="monospace">D</text>`;
+    return r;
+  }
+
+  svg.innerHTML = html;
+}
+
+// =============================================
+//  UI UPDATES
+// =============================================
+function updateAll() {
+  renderChart();
+
+  // Determine phase for circuit
+  let circuitPhase;
+  if (stepPhase === 0) circuitPhase = 'superposition';
+  else if (stepPhase === 1) circuitPhase = 'oracle';
+  else if (stepPhase === 2) circuitPhase = 'diffusion';
+  else if (stepPhase === 3) circuitPhase = 'iteration';
+  else circuitPhase = 'done';
+  setCircuitPhase(circuitPhase);
+
+  // Update step progress
+  setStep(stepPhase);
+}
+
+// =============================================
+//  ACTIONS
+// =============================================
+function doReset() {
+  stopAnim();
+  initSuperposition();
+  updateAll();
+  setStep(0);
+  infoMsg.innerHTML = '🔄 已重置为均匀叠加态。每个基态振幅 = 1/√N ≈ ' + (1/Math.sqrt(N_STATES)).toFixed(3);
+
+  document.getElementById('btn-oracle').disabled = false;
+  document.getElementById('btn-iter').disabled = false;
+  document.querySelectorAll('.target-picker button').forEach(b => b.disabled = false);
+}
+
+function doOracle() {
+  if (oraclePhaseFlipped) {
+    infoMsg.innerHTML = '⚠️ 本迭代已应用 Oracle，请先执行 <b>「Grover 迭代」</b> 完成扩散步骤';
+    return;
+  }
+  applyOracle();
+  updateAll();
+  setStep(1);
+  infoMsg.innerHTML = `🎯 <b class="hl-tg">Oracle 已应用</b>：翻转目标态 |${targetState.toString(2).padStart(N_QUBITS, '0')}⟩ 的相位（振幅 → ${amplitudes[targetState].toFixed(3)}）<br>下一步：点击 <b>「Grover 迭代」</b> 执行扩散操作`;
+}
+
+function doGroverIteration() {
+  if (!oracleApplied) {
+    // If no oracle yet, apply both
+    applyOracle();
+    applyDiffusion();
+  } else {
+    applyDiffusion();
+    oracleApplied = false;
+  }
+
+  updateAll();
+  setStep(3);
+
+  const prob = (amplitudes[targetState] ** 2 * 100).toFixed(1);
+  infoMsg.innerHTML = `🔄 <b class="hl-df">Grover 迭代 #${iteration}</b> 完成 · 目标态概率 = ${prob}%<br>振幅已反转均值，目标态振幅增大到 ${amplitudes[targetState].toFixed(3)}`;
+
+  if (iteration >= optimalIterations) {
+    infoMsg.innerHTML += `<br>✅ 已达到理论最优迭代次数，可以测量！`;
+  }
+
+  document.querySelectorAll('.target-picker button').forEach(b => b.disabled = true);
+}
+
+function doFullIteration() {
+  // One complete O+D cycle
+  applyOracle();
+  applyDiffusion();
+  oracleApplied = false;
+  updateAll();
+  setStep(3);
+
+  const prob = (amplitudes[targetState] ** 2 * 100).toFixed(1);
+  infoMsg.innerHTML = `🔄 <b class="hl-df">完整 Grover 迭代 #${iteration}</b> · 目标概率 = ${prob}%<br>目标振幅 = ${amplitudes[targetState].toFixed(3)}`;
+
+  document.querySelectorAll('.target-picker button').forEach(b => b.disabled = true);
+}
+
+function doMeasure() {
+  // Simulate measurement - target state has high probability
+  setStep(4);
+  const prob = amplitudes[targetState] ** 2;
+  updateAll();
+
+  infoMsg.innerHTML = `📏 <b class="hl-am">测量结果</b>：|${targetState.toString(2).padStart(N_QUBITS, '0')}⟩ ✨<br>`
+    + `概率 = ${(prob * 100).toFixed(1)}% · Grover 搜索成功！🎉<br>`
+    + `经典搜索平均需要 ${Math.round(N_STATES/2)} 次，量子搜索只需 ${Math.round(optimalIterations)} 次 Grover 迭代！`;
+
+  document.getElementById('btn-oracle').disabled = true;
+  document.getElementById('btn-iter').disabled = true;
+}
+
+// =============================================
+//  AUTO DEMO
+// =============================================
+function autoDemo() {
+  if (isAnimating) { stopAnim(); return; }
+  doReset();
+  isAnimating = true;
+  document.getElementById('btn-auto').textContent = '⏹ 停止';
+  document.getElementById('btn-auto').classList.add('danger');
+  document.querySelectorAll('.target-picker button').forEach(b => b.disabled = true);
+
+  const speed = getSpeed();
+  let delay = 0;
+
+  // Step 1: Superposition (already done by reset)
+  setTimeout(() => {
+    if (!isAnimating) return;
+    infoMsg.innerHTML = '🌀 初始化为均匀叠加态 · 所有基态振幅 = ' + (1/Math.sqrt(N_STATES)).toFixed(3);
+    setStep(0);
+    setCircuitPhase('superposition');
+  }, delay);
+
+  delay += speed;
+  setTimeout(() => {
+    if (!isAnimating) return;
+    applyOracle();
+    updateAll();
+    setStep(1);
+    infoMsg.innerHTML = `🎯 <b class="hl-tg">Oracle 标记</b>：|${targetState.toString(2).padStart(N_QUBITS, '0')}⟩ 相位翻转 (振幅 → ${amplitudes[targetState].toFixed(3)})`;
+  }, delay);
+
+  delay += speed;
+  setTimeout(() => {
+    if (!isAnimating) return;
+    applyDiffusion();
+    oraclePhaseFlipped = false;
+    oracleApplied = false;
+    updateAll();
+    setStep(3);
+    const prob1 = (amplitudes[targetState] ** 2 * 100).toFixed(1);
+    infoMsg.innerHTML = `🔄 <b class="hl-df">迭代 #1</b> 完成 · 目标概率 = ${prob1}% · 振幅 = ${amplitudes[targetState].toFixed(3)}`;
+  }, delay);
+
+  // Remaining iterations
+  for (let it = 2; it <= optimalIterations; it++) {
+    delay += speed * 0.8;
+    const iterNum = it;
+    (function(itNum) {
+      setTimeout(() => {
+        if (!isAnimating) return;
+        applyOracle();
+        applyDiffusion();
+        oracleApplied = false;
+        updateAll();
+        const probN = (amplitudes[targetState] ** 2 * 100).toFixed(1);
+        infoMsg.innerHTML = `🔄 <b class="hl-df">迭代 #${itNum}</b> · 目标概率 = ${probN}% · 振幅 = ${amplitudes[targetState].toFixed(3)}`;
+      }, delay);
+    })(iterNum);
+  }
+
+  // Measure
+  delay += speed;
+  setTimeout(() => {
+    if (!isAnimating) return;
+    doMeasure();
+    stopAnim();
+  }, delay);
+}
+
+function stopAnim() {
+  isAnimating = false;
+  clearTimeout(animTimer);
+  const btn = document.getElementById('btn-auto');
+  btn.textContent = '▶ 自动演示';
+  btn.classList.remove('danger');
+  document.querySelectorAll('.target-picker button').forEach(b => {
+    if (iteration === 0) b.disabled = false;
+  });
+}
+
+// =============================================
+//  SPEED
+// =============================================
+function getSpeed() {
+  const v = parseInt(document.getElementById('speed-slider').value);
+  return Math.max(200, 1200 - (v - 1) * 100);
+}
+
+// =============================================
+//  TARGET PICKER
+// =============================================
+function buildTargetPicker() {
+  targetPicker.innerHTML = '';
+  const many = N_STATES > 32;
+  for (let i = 0; i < N_STATES; i++) {
+    const btn = document.createElement('button');
+    btn.textContent = many ? `|${i}⟩` : `|${i.toString(2).padStart(N_QUBITS, '0')}⟩`;
+    btn.title = many ? `|${i.toString(2).padStart(N_QUBITS, '0')}⟩` : `状态 ${i}`;
+    btn.dataset.state = i;
+    btn.classList.toggle('active', i === targetState);
+    btn.style.fontSize = many && N_STATES > 32 ? '9px' : '11px';
+    btn.style.padding = many ? '3px 6px' : '4px 10px';
+    btn.addEventListener('click', () => {
+      if (iteration > 0) return;
+      targetState = i;
+      document.querySelectorAll('.target-picker button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      doReset();
+      infoMsg.innerHTML = `🎯 目标态已切换为 |${i.toString(2).padStart(N_QUBITS, '0')}⟩，已重置`;
+    });
+    targetPicker.appendChild(btn);
+  }
+}
+
+// =============================================
+//  CHANGE QUBITS
+// =============================================
+function changeQubits(n) {
+  if (n === N_QUBITS) return;
+  stopAnim();
+  N_QUBITS = n;
+  N_STATES = 1 << N_QUBITS;
+  targetState = Math.min(targetState, N_STATES - 1);
+  amplitudes = new Array(N_STATES).fill(0);
+  iteration = 0;
+  oracleApplied = false;
+  oraclePhaseFlipped = false;
+
+  // Update active button
+  document.querySelectorAll('.qbit-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.n) === n);
+  });
+
+  buildTargetPicker();
+  initSuperposition();
+  updateAll();
+  setStep(0);
+
+  // Update stat first box label
+  document.querySelector('.stat-box:first-child .stat-label').textContent =
+    n + ' 量子比特';
+  infoMsg.innerHTML = `🔬 已切换到 <b>${n} 量子比特</b>（${N_STATES} 个基态）<br>🌀 已重置为均匀叠加态 · 理论最优迭代 ≈ ${optimalIterations} 次`;
+
+  document.getElementById('btn-oracle').disabled = false;
+  document.getElementById('btn-iter').disabled = false;
+}
+
+// =============================================
+//  INIT
+// =============================================
+buildTargetPicker();
+initSuperposition();
+updateAll();
+infoMsg.innerHTML = '🌀 均匀叠加态已初始化 · ' + N_STATES + ' 个基态等幅叠加<br>'
+  + '🎯 点击上方目标态按钮选择搜索目标，然后点击 <b>「自动演示」</b>';
+
+// Event listeners
+document.getElementById('btn-auto').addEventListener('click', autoDemo);
+document.getElementById('btn-oracle').addEventListener('click', doOracle);
+document.getElementById('btn-iter').addEventListener('click', doFullIteration);
+document.getElementById('btn-reset').addEventListener('click', doReset);
+
+document.querySelectorAll('.qbit-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (isAnimating) stopAnim();
+    changeQubits(parseInt(btn.dataset.n));
+  });
+});
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ') { e.preventDefault(); autoDemo(); }
+  if (e.key === 'r' || e.key === 'R') doReset();
+  if (e.key === 'o' || e.key === 'O') doOracle();
+  if (e.key === 'g' || e.key === 'G') doFullIteration();
+  if (e.key === 'm' || e.key === 'M') doMeasure();
+  const q = parseInt(e.key);
+  if (q >= 2 && q <= 6) changeQubits(q);
+});
+</script>
+</body>
+</html>

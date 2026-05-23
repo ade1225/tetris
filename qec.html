@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量子纠错 · 3-Qubit Bit Flip Code</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(145deg, #070713, #0f0a2a, #070713);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #e0e0e0;
+    padding: 10px;
+    overflow: hidden;
+  }
+
+  .container {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(12px);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+    padding: 12px 18px;
+    max-width: 1050px;
+    width: 100%;
+    max-height: 100vh;
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 300;
+    letter-spacing: 2px;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  h1 span.highlight { color: #7c4dff; font-weight: 600; }
+  h1 span.highlight2 { color: #00e5ff; }
+
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 28px;
+    letter-spacing: 1px;
+  }
+
+  /* ---- Step Indicator ---- */
+  .steps-bar {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .step-node {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.2);
+    transition: 0.3s;
+  }
+
+  .step-node .circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: 0.3s;
+    background: rgba(255,255,255,0.03);
+  }
+
+  .step-node.active .circle {
+    border-color: #7c4dff;
+    background: rgba(124,77,255,0.15);
+    box-shadow: 0 0 20px rgba(124,77,255,0.2);
+    color: #b388ff;
+  }
+
+  .step-node.done .circle {
+    border-color: #00e5ff;
+    background: rgba(0,229,255,0.1);
+    color: #00e5ff;
+  }
+
+  .step-node .label {
+    white-space: nowrap;
+  }
+
+  .step-node.done .label { color: rgba(255,255,255,0.5); }
+  .step-node.active .label { color: #b388ff; }
+
+  .step-arrow {
+    color: rgba(255,255,255,0.08);
+    font-size: 18px;
+  }
+
+  /* ---- Qubits ---- */
+  .qubits-row {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .qubit-card {
+    text-align: center;
+    position: relative;
+  }
+
+  .qubit-card .label {
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 2px;
+    letter-spacing: 1px;
+  }
+
+  .bloch-wrapper {
+    position: relative;
+    width: 140px;
+    height: 140px;
+  }
+
+  .bloch-sphere {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(30,30,60,0.8), rgba(10,10,30,0.9));
+    border: 2px solid rgba(255,255,255,0.08);
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.4s;
+  }
+
+  /* grid lines */
+  .bloch-sphere::before {
+    content: '';
+    position: absolute;
+    inset: 10%;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .bloch-sphere::after {
+    content: '';
+    position: absolute;
+    width: 1px;
+    height: 100%;
+    left: 50%;
+    top: 0;
+    background: rgba(255,255,255,0.04);
+  }
+
+  .bloch-arrow {
+    position: absolute;
+    width: 4px;
+    height: 54px;
+    border-radius: 3px;
+    bottom: 50%;
+    left: calc(50% - 2px);
+    transform-origin: bottom center;
+    transition: background 0.4s, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 2;
+  }
+
+  .bloch-arrow.qubit0 { background: linear-gradient(to top, #e94560, #ff6b81); }
+  .bloch-arrow.qubit1 { background: linear-gradient(to top, #48dbfb, #00e5ff); }
+  .bloch-arrow.qubit2 { background: linear-gradient(to top, #ffa726, #ffcc02); }
+
+  .bloch-arrow .arrow-head {
+    position: absolute;
+    top: -6px;
+    left: -4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: inherit;
+    filter: brightness(1.3);
+    box-shadow: 0 0 12px currentColor;
+  }
+
+  .bloch-arrow .arrow-head.qubit0 { color: #e94560; }
+  .bloch-arrow .arrow-head.qubit1 { color: #48dbfb; }
+  .bloch-arrow .arrow-head.qubit2 { color: #ffa726; }
+
+  .state-label {
+    font-size: 14px;
+    font-weight: 500;
+    margin-top: 8px;
+    font-variant-numeric: tabular-nums;
+    min-height: 20px;
+    transition: color 0.3s;
+  }
+
+  .qubit-card.error .state-label { color: #e94560; }
+  .qubit-card.corrected .state-label { color: #48dbfb; }
+  .qubit-card.encoding .state-label { color: #b388ff; }
+
+  .qubit-card .qubit-id {
+    font-size: 9px;
+    color: rgba(255,255,255,0.15);
+  }
+
+  /* ---- CNOT Lines ---- */
+  .cnot-lines {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    height: 30px;
+    margin-bottom: 16px;
+  }
+
+  .cnot-pair {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+  }
+
+  .cnot-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(124,77,255,0.3);
+    transition: background 0.3s;
+  }
+
+  .cnot-dot.active {
+    background: #7c4dff;
+    box-shadow: 0 0 12px rgba(124,77,255,0.5);
+  }
+
+  /* ---- Circuit SVG ---- */
+  .circuit-wrapper {
+    background: rgba(0,0,0,0.25);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .circuit-wrapper svg {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+  }
+
+  /* ---- Info Panel ---- */
+  .info-panel {
+    background: rgba(0,0,0,0.2);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255,255,255,0.04);
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .info-panel .icon { font-size: 24px; }
+
+  .info-panel .msg {
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.7);
+    flex: 1;
+  }
+
+  .info-panel .msg .hl { color: #b388ff; font-weight: 600; }
+  .info-panel .msg .hl2 { color: #00e5ff; }
+  .info-panel .msg .hl3 { color: #e94560; }
+  .info-panel .msg .hl4 { color: #ffa726; }
+
+  .info-panel .state-vec {
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    color: rgba(255,255,255,0.8);
+    background: rgba(0,0,0,0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  /* ---- Controls ---- */
+  .ctrl-section {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  .btn {
+    padding: 9px 22px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: #e0e0e0;
+    font-size: 14px;
+    cursor: pointer;
+    transition: 0.15s;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { background: rgba(255,255,255,0.09); }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.25; cursor: not-allowed; transform: none; }
+
+  .btn.primary {
+    background: rgba(124,77,255,0.12);
+    border-color: rgba(124,77,255,0.25);
+    color: #b388ff;
+  }
+  .btn.primary:hover { background: rgba(124,77,255,0.22); }
+
+  .btn.error-btn {
+    background: rgba(233,69,96,0.08);
+    border-color: rgba(233,69,96,0.15);
+    color: #e94560;
+  }
+  .btn.error-btn:hover { background: rgba(233,69,96,0.18); }
+  .btn.error-btn.active-error {
+    background: rgba(233,69,96,0.25);
+    border-color: #e94560;
+    box-shadow: 0 0 16px rgba(233,69,96,0.25);
+  }
+
+  .btn.correct-btn {
+    background: rgba(0,229,255,0.08);
+    border-color: rgba(0,229,255,0.15);
+    color: #48dbfb;
+  }
+  .btn.correct-btn:hover { background: rgba(0,229,255,0.18); }
+
+  .speed-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    margin-left: 8px;
+  }
+
+  input[type="range"] {
+    width: 80px;
+    -webkit-appearance: none;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.1);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #7c4dff;
+    cursor: pointer;
+  }
+
+  .error-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+  .error-badge.no-error { background: rgba(0,229,255,0.12); color: #48dbfb; }
+  .error-badge.has-error { background: rgba(233,69,96,0.15); color: #e94560; }
+
+  /* ---- Syndrome ---- */
+  .syndrome-row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .syndrome-box {
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.04);
+    transition: 0.3s;
+  }
+
+  .syndrome-box .syndrome-label {
+    color: rgba(255,255,255,0.3);
+    font-family: monospace;
+  }
+
+  .syndrome-box .syndrome-value {
+    font-family: monospace;
+    font-size: 16px;
+    font-weight: 600;
+    min-width: 18px;
+    text-align: center;
+    transition: 0.3s;
+  }
+
+  .syndrome-box.triggered {
+    border-color: rgba(233,69,96,0.25);
+    background: rgba(233,69,96,0.08);
+  }
+  .syndrome-box.triggered .syndrome-value {
+    color: #e94560;
+  }
+  .syndrome-box.not-triggered .syndrome-value {
+    color: rgba(255,255,255,0.2);
+  }
+
+  .syndrome-box .check-label {
+    font-size: 14px;
+  }
+
+  /* ---- Decoded state ---- */
+  .decoded-state {
+    text-align: center;
+    font-size: 14px;
+    margin-bottom: 12px;
+    min-height: 24px;
+    color: rgba(255,255,255,0.5);
+  }
+  .decoded-state .correct { color: #48dbfb; font-weight: 600; }
+  .decoded-state .wrong  { color: #e94560; font-weight: 600; }
+
+  @media (max-width: 700px) {
+    .container { padding: 16px; }
+    .bloch-wrapper { width: 100px; height: 100px; }
+    .bloch-arrow { height: 36px; }
+    .qubits-row { gap: 16px; }
+    .step-node { font-size: 10px; }
+    .step-node .circle { width: 26px; height: 26px; font-size: 11px; }
+    .steps-bar { flex-wrap: wrap; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>⚛ <span class="highlight">量子纠错</span> · <span class="highlight2">3-Qubit Bit Flip Code</span></h1>
+  <div class="subtitle">三量子比特重复码 · 演示一位比特翻转错误的检测与纠正</div>
+
+  <!-- Step Progress -->
+  <div class="steps-bar" id="steps-bar">
+    <div class="step-node active" data-step="0">
+      <div class="circle">0</div>
+      <span class="label">初始态</span>
+    </div>
+    <span class="step-arrow">▸</span>
+    <div class="step-node" data-step="1">
+      <div class="circle">1</div>
+      <span class="label">编码</span>
+    </div>
+    <span class="step-arrow">▸</span>
+    <div class="step-node" data-step="2">
+      <div class="circle">2</div>
+      <span class="label">错误注入</span>
+    </div>
+    <span class="step-arrow">▸</span>
+    <div class="step-node" data-step="3">
+      <div class="circle">3</div>
+      <span class="label">校正子</span>
+    </div>
+    <span class="step-arrow">▸</span>
+    <div class="step-node" data-step="4">
+      <div class="circle">4</div>
+      <span class="label">恢复</span>
+    </div>
+  </div>
+
+  <!-- Syndrome display -->
+  <div class="syndrome-row" id="syndrome-row">
+    <div class="syndrome-box" id="syn-1">
+      <span class="check-label">P₁</span>
+      <span class="syndrome-label">q₀ ⊕ q₁</span>
+      <span class="syndrome-value" id="syn-val-1">0</span>
+    </div>
+    <div class="syndrome-box" id="syn-2">
+      <span class="check-label">P₂</span>
+      <span class="syndrome-label">q₁ ⊕ q₂</span>
+      <span class="syndrome-value" id="syn-val-2">0</span>
+    </div>
+    <div class="decoded-state" id="decoded-state">等待演示...</div>
+  </div>
+
+  <!-- Qubits -->
+  <div class="qubits-row" id="qubits-row">
+    <div class="qubit-card" data-q="0">
+      <div class="label">q₀（数据）</div>
+      <div class="bloch-wrapper">
+        <div class="bloch-sphere" id="sphere-0">
+          <div class="bloch-arrow qubit0" id="arrow-0"><div class="arrow-head qubit0"></div></div>
+        </div>
+      </div>
+      <div class="state-label" id="state-0">|0⟩</div>
+      <div class="qubit-id">ancilla A</div>
+    </div>
+    <div class="qubit-card" data-q="1">
+      <div class="label">q₁（辅助）</div>
+      <div class="bloch-wrapper">
+        <div class="bloch-sphere" id="sphere-1">
+          <div class="bloch-arrow qubit1" id="arrow-1"><div class="arrow-head qubit1"></div></div>
+        </div>
+      </div>
+      <div class="state-label" id="state-1">|0⟩</div>
+      <div class="qubit-id">ancilla B</div>
+    </div>
+    <div class="qubit-card" data-q="2">
+      <div class="label">q₂（辅助）</div>
+      <div class="bloch-wrapper">
+        <div class="bloch-sphere" id="sphere-2">
+          <div class="bloch-arrow qubit2" id="arrow-2"><div class="arrow-head qubit2"></div></div>
+        </div>
+      </div>
+      <div class="state-label" id="state-2">|0⟩</div>
+      <div class="qubit-id">ancilla C</div>
+    </div>
+  </div>
+
+  <!-- Circuit -->
+  <div class="circuit-wrapper">
+    <svg id="circuit-svg" viewBox="0 0 780 160" width="780" height="160"></svg>
+  </div>
+
+  <!-- Info Panel -->
+  <div class="info-panel" id="info-panel">
+    <div class="icon">ℹ️</div>
+    <div class="msg" id="info-msg">点击 <b>「注入错误」</b> 选择一个量子比特注入比特翻转（X 门），观察纠错过程</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="ctrl-section">
+    <button class="btn primary" id="btn-auto">▶ 自动演示</button>
+    <button class="btn" id="btn-reset">↺ 重置</button>
+
+    <div style="width:1px;height:28px;background:rgba(255,255,255,0.06);margin:0 6px;"></div>
+
+    <button class="btn error-btn" data-qubit="0">⚠ 翻转 q₀</button>
+    <button class="btn error-btn" data-qubit="1">⚠ 翻转 q₁</button>
+    <button class="btn error-btn" data-qubit="2">⚠ 翻转 q₂</button>
+
+    <div style="width:1px;height:28px;background:rgba(255,255,255,0.06);margin:0 6px;"></div>
+
+    <button class="btn correct-btn" id="btn-correct">🔧 纠错</button>
+
+    <div class="speed-row">
+      <span>慢</span>
+      <input type="range" id="speed-slider" min="1" max="10" value="5">
+      <span>快</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================
+//  STATE
+// =============================================
+// |ψ⟩ = alpha|0⟩ + beta|1⟩
+let alpha = 1, beta = 0;        // logical qubit state
+let qubits = [0, 0, 0];         // 0=|0⟩, 1=|1⟩
+let encoded = false;
+let errorInjected = false;
+let errorQubit = -1;            // -1 = no error
+let corrected = false;
+let step = 0;                   // 0=init, 1=encoded, 2=error, 3=syndrome, 4=corrected
+let isAnimating = false;
+let animTimer = null;
+
+const dom = {
+  arrows:  [document.getElementById('arrow-0'), document.getElementById('arrow-1'), document.getElementById('arrow-2')],
+  spheres: [document.getElementById('sphere-0'), document.getElementById('sphere-1'), document.getElementById('sphere-2')],
+  states:  [document.getElementById('state-0'), document.getElementById('state-1'), document.getElementById('state-2')],
+  cards:   document.querySelectorAll('.qubit-card'),
+  stepNodes: document.querySelectorAll('.step-node'),
+  infoMsg: document.getElementById('info-msg'),
+  circuit: document.getElementById('circuit-svg'),
+  synVal1: document.getElementById('syn-val-1'),
+  synVal2: document.getElementById('syn-val-2'),
+  synBox1: document.getElementById('syn-1'),
+  synBox2: document.getElementById('syn-2'),
+  decodedState: document.getElementById('decoded-state'),
+};
+
+// =============================================
+//  BLOCH SPHERE
+// =============================================
+function updateBloch(q, stateVal) {
+  // stateVal: 0=|0⟩ (north), 1=|1⟩ (south), or superposition angle
+  const arrow = dom.arrows[q];
+  let angle;
+  if (stateVal === 0) angle = 0;
+  else if (stateVal === 1) angle = 180;
+  else angle = stateVal; // custom angle for superposition
+
+  arrow.style.transform = `rotate(${angle}deg)`;
+}
+
+function updateStateLabel(q) {
+  const label = dom.states[q];
+  const v = qubits[q];
+  const card = dom.cards[q];
+
+  if (encoded && !errorInjected && !corrected) {
+    // During encoding, show logical state
+    if (q === 0) {
+      const p0 = (alpha * alpha).toFixed(2);
+      const p1 = (beta * beta).toFixed(2);
+      label.textContent = `α|0⟩+β|1⟩`;
+      label.style.fontSize = '12px';
+    } else {
+      label.textContent = v === 0 ? '|0⟩' : '|1⟩';
+      label.style.fontSize = '14px';
+    }
+  } else {
+    label.textContent = v === 0 ? '|0⟩' : '|1⟩';
+    label.style.fontSize = '14px';
+  }
+
+  card.classList.toggle('error', errorInjected && !corrected && q === errorQubit);
+  card.classList.toggle('corrected', corrected);
+  card.classList.toggle('encoding', encoded && !errorInjected && !corrected);
+}
+
+function renderAllBlochs() {
+  for (let q = 0; q < 3; q++) {
+    updateBloch(q, qubits[q] === 0 ? 0 : 180);
+    updateStateLabel(q);
+  }
+}
+
+// =============================================
+//  CIRCUIT SVG
+// =============================================
+function drawCircuit(phase) {
+  // phase: 'init' | 'encode' | 'error' | 'syndrome' | 'correct'
+  const svg = dom.circuit;
+  const W = 780, H = 160;
+  const q0y = 30, q1y = 75, q2y = 120;
+  const col = {
+    wire: 'rgba(255,255,255,0.12)',
+    gate: 'rgba(124,77,255,0.6)',
+    gateFill: 'rgba(124,77,255,0.1)',
+    error: 'rgba(233,69,96,0.7)',
+    errorFill: 'rgba(233,69,96,0.12)',
+    correct: 'rgba(0,229,255,0.6)',
+    measure: 'rgba(255,167,38,0.6)',
+    text: 'rgba(255,255,255,0.4)',
+    active: '#7c4dff',
+  };
+
+  let labels = ['q₀', 'q₁', 'q₂'];
+  let html = '';
+
+  // Wires
+  for (let i = 0; i < 3; i++) {
+    const y = [q0y, q1y, q2y][i];
+    html += `<line x1="40" y1="${y}" x2="${W-30}" y2="${y}" stroke="${col.wire}" stroke-width="1.5"/>`;
+    html += `<text x="12" y="${y+5}" fill="${col.text}" font-size="12" font-family="monospace">${labels[i]}</text>`;
+  }
+
+  // Initial |0⟩ labels
+  html += `<text x="44" y="${q0y-8}" fill="${col.text}" font-size="10" font-family="monospace">|ψ⟩</text>`;
+  html += `<text x="44" y="${q1y-8}" fill="${col.text}" font-size="10" font-family="monospace">|0⟩</text>`;
+  html += `<text x="44" y="${q2y-8}" fill="${col.text}" font-size="10" font-family="monospace">|0⟩</text>`;
+
+  if (phase === 'init' || phase === 'encode') {
+    // CNOT gates for encoding
+    // CNOT q0->q1
+    let cx = 120;
+    html += dot(cx, q0y, col.active);
+    html += plus(cx, q1y, col.active);
+    html += `<line x1="${cx}" y1="${q0y}" x2="${cx}" y2="${q1y}" stroke="${col.active}" stroke-width="1.5"/>`;
+    html += label(cx, q1y+20, 'CNOT', col.text);
+
+    // CNOT q0->q2
+    cx = 200;
+    html += dot(cx, q0y, col.active);
+    html += plus(cx, q2y, col.active);
+    html += `<line x1="${cx}" y1="${q0y}" x2="${cx}" y2="${q2y}" stroke="${col.active}" stroke-width="1.5"/>`;
+    html += label(cx, q2y+20, 'CNOT', col.text);
+
+    html += label(155, 18, '编码', col.text);
+  }
+
+  if (phase === 'error') {
+    // Show CNOT gates faded
+    let cx = 120;
+    html += dot(cx, q0y, 'rgba(124,77,255,0.2)');
+    html += plus(cx, q1y, 'rgba(124,77,255,0.2)');
+    html += `<line x1="${cx}" y1="${q0y}" x2="${cx}" y2="${q1y}" stroke="rgba(124,77,255,0.2)" stroke-width="1.5"/>`;
+    cx = 200;
+    html += dot(cx, q0y, 'rgba(124,77,255,0.2)');
+    html += plus(cx, q2y, 'rgba(124,77,255,0.2)');
+    html += `<line x1="${cx}" y1="${q0y}" x2="${cx}" y2="${q2y}" stroke="rgba(124,77,255,0.2)" stroke-width="1.5"/>`;
+
+    // Error gate on specific qubit
+    const errorX = 340;
+    let ey = [q0y, q1y, q2y][errorQubit];
+    html += `<rect x="${errorX-18}" y="${ey-14}" width="36" height="28" rx="5" fill="${col.errorFill}" stroke="${col.error}" stroke-width="1.5"/>`;
+    html += `<text x="${errorX}" y="${ey+5}" fill="${col.error}" font-size="13" font-family="monospace" text-anchor="middle" font-weight="600">X</text>`;
+    html += label(errorX, ey-26, `X gate on q${errorQubit}`, col.error);
+  }
+
+  if (phase === 'syndrome' || phase === 'correct') {
+    // Show all gates faded first
+    [120, 200].forEach(cx => {
+      html += dot(cx, q0y, 'rgba(124,77,255,0.15)');
+      html += plus(cx, q1y, 'rgba(124,77,255,0.15)');
+      html += `<line x1="${cx}" y1="${q0y}" x2="${cx}" y2="${q1y}" stroke="rgba(124,77,255,0.15)" stroke-width="1"/>`;
+      cx = 200;
+      html += dot(cx, q0y, 'rgba(124,77,255,0.15)');
+      html += plus(cx, q2y, 'rgba(124,77,255,0.15)');
+      html += `<line x1="${cx}" y1="${q0y}" x2="${cx}" y2="${q2y}" stroke="rgba(124,77,255,0.15)" stroke-width="1"/>`;
+    });
+
+    // Error X fad
+    if (errorQubit >= 0) {
+      const ey = [q0y, q1y, q2y][errorQubit];
+      html += `<rect x="320" y="${ey-14}" width="36" height="28" rx="5" fill="rgba(233,69,96,0.05)" stroke="rgba(233,69,96,0.2)" stroke-width="1"/>`;
+      html += `<text x="338" y="${ey+5}" fill="rgba(233,69,96,0.3)" font-size="13" font-family="monospace" text-anchor="middle">X</text>`;
+    }
+
+    // Syndrome measurement CNOTs
+    // q0->q1 (measure parity 0-1)
+    let sx = 440;
+    html += dot(sx, q0y, col.active);
+    html += plus(sx, q1y, col.active);
+    html += `<line x1="${sx}" y1="${q0y}" x2="${sx}" y2="${q1y}" stroke="${col.active}" stroke-width="1.5"/>`;
+
+    // q1->q2 (measure parity 1-2)
+    sx = 520;
+    html += dot(sx, q1y, col.active);
+    html += plus(sx, q2y, col.active);
+    html += `<line x1="${sx}" y1="${q1y}" x2="${sx}" y2="${q2y}" stroke="${col.active}" stroke-width="1.5"/>`;
+
+    html += label(475, 18, '校正子', col.text);
+
+    // Measurement symbols on q1, q2
+    [q1y, q2y].forEach((y, i) => {
+      const mx = 580;
+      html += meter(mx, y, col.measure);
+      const mLabel = i === 0 ? 'm₁' : 'm₂';
+      html += label(mx+30, y+5, mLabel, col.measure);
+    });
+  }
+
+  if (phase === 'correct') {
+    // Correction gate
+    const cx = 660;
+    let cy = [q0y, q1y, q2y][errorQubit];
+    html += `<rect x="${cx-16}" y="${cy-14}" width="32" height="28" rx="5" fill="${col.gateFill}" stroke="${col.correct}" stroke-width="1.5"/>`;
+    html += `<text x="${cx}" y="${cy+5}" fill="${col.correct}" font-size="13" font-family="monospace" text-anchor="middle" font-weight="600">X</text>`;
+    html += label(cx, cy-26, '恢复', col.correct);
+  }
+
+  function dot(x, y, color) {
+    return `<circle cx="${x}" cy="${y}" r="4" fill="${color}"/>`;
+  }
+  function plus(x, y, color) {
+    return `<circle cx="${x}" cy="${y}" r="10" fill="none" stroke="${color}" stroke-width="1.5"/>
+            <line x1="${x-6}" y1="${y}" x2="${x+6}" y2="${y}" stroke="${color}" stroke-width="1.5"/>
+            <line x1="${x}" y1="${y-6}" x2="${x}" y2="${y+6}" stroke="${color}" stroke-width="1.5"/>`;
+  }
+  function meter(x, y, color) {
+    return `<rect x="${x-8}" y="${y-12}" width="16" height="24" rx="3" fill="rgba(255,167,38,0.08)" stroke="${color}" stroke-width="1.2"/>
+            <text x="${x}" y="${y+4}" fill="${color}" font-size="11" text-anchor="middle" font-family="monospace">M</text>`;
+  }
+  function label(x, y, text, color) {
+    return `<text x="${x}" y="${y}" fill="${color}" font-size="10" text-anchor="middle" font-family="sans-serif">${text}</text>`;
+  }
+
+  svg.innerHTML = html;
+}
+
+// =============================================
+//  STEPS
+// =============================================
+function setStep(n) {
+  step = n;
+  dom.stepNodes.forEach((node, i) => {
+    node.classList.toggle('active', i === n);
+    node.classList.toggle('done', i < n);
+  });
+}
+
+// =============================================
+//  CORE ACTIONS
+// =============================================
+function resetAll() {
+  stopAnim();
+  alpha = 1; beta = 0;
+  qubits = [0, 0, 0];
+  encoded = false;
+  errorInjected = false;
+  errorQubit = -1;
+  corrected = false;
+
+  setStep(0);
+  renderAllBlochs();
+  drawCircuit('init');
+
+  dom.infoMsg.innerHTML = '⚛ 初始态：|ψ⟩ = |0⟩ 点击 <b>「编码」</b> 或 <b>「自动演示」</b> 开始';
+  dom.decodedState.textContent = '等待演示...';
+  dom.synVal1.textContent = '0';
+  dom.synVal2.textContent = '0';
+  dom.synBox1.className = 'syndrome-box not-triggered';
+  dom.synBox2.className = 'syndrome-box not-triggered';
+
+  document.querySelectorAll('.error-btn').forEach(b => b.classList.remove('active-error'));
+  document.getElementById('btn-correct').disabled = true;
+}
+
+function encode() {
+  if (encoded) return;
+  encoded = true;
+  qubits = [0, 0, 0];  // |0⟩|0⟩|0⟩ initially
+
+  // Animate encoding: CNOTs
+  let delay = 0;
+  const speed = getSpeed();
+
+  // First CNOT: q0->q1
+  setTimeout(() => {
+    qubits[1] = qubits[0];  // copy
+    updateBloch(1, qubits[1] === 0 ? 0 : 180);
+    updateStateLabel(1);
+    dom.infoMsg.innerHTML = '🔗 CNOT(q₀, q₁)：将 q₀ 复制到 q₁';
+  }, delay);
+
+  delay += speed;
+  setTimeout(() => {
+    qubits[2] = qubits[0];  // copy
+    updateBloch(2, qubits[2] === 0 ? 0 : 180);
+    updateStateLabel(2);
+    dom.infoMsg.innerHTML = '🔗 CNOT(q₀, q₂)：将 q₀ 复制到 q₂<br>✅ <span class="hl">编码完成</span>：|ψ⟩ → |ψψψ⟩';
+    setStep(1);
+    drawCircuit('encode');
+  }, delay);
+
+  delay += speed;
+  setTimeout(() => {
+    dom.infoMsg.innerHTML = '🎯 现在可以点击 <b>「注入错误」</b> 在某个量子比特上施加 X 门（比特翻转）';
+    document.querySelectorAll('.error-btn').forEach(b => b.disabled = false);
+  }, delay);
+}
+
+function injectError(q) {
+  if (!encoded || corrected) return;
+  stopAnim();
+
+  // Reset previous error
+  if (errorInjected) {
+    // Restore previous error qubit
+    qubits[errorQubit] = qubits[0];  // restore to logical state
+  }
+
+  errorQubit = q;
+  errorInjected = true;
+  corrected = false;
+
+  // Apply X gate
+  qubits[q] = qubits[q] === 0 ? 1 : 0;
+
+  // Update button states
+  document.querySelectorAll('.error-btn').forEach(b => {
+    b.classList.toggle('active-error', parseInt(b.dataset.qubit) === q);
+  });
+
+  renderAllBlochs();
+  setStep(2);
+  drawCircuit('error');
+
+  document.getElementById('btn-correct').disabled = false;
+
+  // Show which qubit flipped
+  const names = ['q₀（数据）', 'q₁（辅助1）', 'q₂（辅助2）'];
+  dom.infoMsg.innerHTML = `⚠️ <span class="hl3">比特翻转</span>：X 门作用于 ${names[q]}<br>量子态：|${qubits[0]}${qubits[1]}${qubits[2]}⟩ &nbsp; 点击 <b>「纠错」</b> 进行校正子测量与恢复`;
+
+  dom.decodedState.innerHTML = '❌ <span class="wrong">错误态</span> — 数据不一致';
+}
+
+function measureSyndromeAndCorrect() {
+  if (!errorInjected || corrected) return;
+  stopAnim();
+  const speed = getSpeed();
+
+  // Step 1: Measure parity P₁ = q₀ ⊕ q₁
+  setStep(3);
+  dom.infoMsg.innerHTML = '📏 <b>校正子测量</b>：计算奇偶校验...<br>P₁ = q₀ ⊕ q₁ &nbsp; P₂ = q₁ ⊕ q₂';
+  drawCircuit('syndrome');
+
+  setTimeout(() => {
+    const p1 = qubits[0] ^ qubits[1];
+    const p2 = qubits[1] ^ qubits[2];
+
+    // Animate syndrome result
+    dom.synVal1.textContent = p1;
+    dom.synVal2.textContent = p2;
+    dom.synBox1.className = p1 ? 'syndrome-box triggered' : 'syndrome-box not-triggered';
+    dom.synBox2.className = p2 ? 'syndrome-box triggered' : 'syndrome-box not-triggered';
+
+    // Determine error location from syndrome
+    let errorLoc = -1;
+    if (p1 === 0 && p2 === 1) errorLoc = 2;   // q2 flipped
+    else if (p1 === 1 && p2 === 0) errorLoc = 0; // q0 flipped
+    else if (p1 === 1 && p2 === 1) errorLoc = 1; // q1 flipped
+    // else no error
+
+    const names = ['q₀（数据）', 'q₁（辅助1）', 'q₂（辅助2）'];
+    let synMsg;
+    if (errorLoc === -1) {
+      synMsg = '✅ <span class="hl2">未检测到错误</span> (P₁=0, P₂=0)';
+    } else {
+      synMsg = `🔍 <span class="hl4">检测到错误</span>：${names[errorLoc]} (P₁=${p1}, P₂=${p2})`;
+    }
+    dom.infoMsg.innerHTML = `📏 校正子测量完成<br>${synMsg}`;
+
+    // Step 2: Correct
+    setTimeout(() => {
+      if (errorLoc >= 0) {
+        // Apply X gate to fix
+        qubits[errorLoc] = qubits[errorLoc] === 0 ? 1 : 0;
+        corrected = true;
+        renderAllBlochs();
+        setStep(4);
+        drawCircuit('correct');
+
+        // Verify all qubits match
+        const consistent = qubits[0] === qubits[1] && qubits[1] === qubits[2];
+        if (consistent) {
+          dom.infoMsg.innerHTML = `✅ <span class="hl2">纠错成功！</span> 量子态已恢复到 |${qubits[0]}${qubits[1]}${qubits[2]}⟩<br>X 门作用于 ${names[errorLoc]} 已撤销，三个量子比特一致 ✔`;
+          dom.decodedState.innerHTML = `✅ <span class="correct">纠错完成</span> — 恢复至 |${qubits[0]}${qubits[1]}${qubits[2]}⟩`;
+        } else {
+          dom.infoMsg.innerHTML = `⚠️ 数据仍不一致，请检查`;
+          dom.decodedState.innerHTML = '❌ 纠错失败';
+        }
+      } else {
+        corrected = true;
+        dom.infoMsg.innerHTML = '✅ <span class="hl2">无需纠错</span> — 校正子检测到无错误发生';
+        dom.decodedState.innerHTML = `✅ <span class="correct">无错误，状态完好</span> — |${qubits[0]}${qubits[1]}${qubits[2]}⟩`;
+        setStep(4);
+      }
+
+      document.getElementById('btn-correct').disabled = true;
+    }, speed);
+  }, speed);
+}
+
+// =============================================
+//  AUTO DEMO
+// =============================================
+function autoDemo() {
+  if (isAnimating) { stopAnim(); return; }
+  resetAll();
+  isAnimating = true;
+  document.getElementById('btn-auto').textContent = '⏹ 停止';
+  document.getElementById('btn-auto').classList.add('danger');
+
+  // Encode first
+  encode();
+
+  // After encode, inject error on q0, then correct
+  setTimeout(() => {
+    if (isAnimating) {
+      injectError(0);
+      setTimeout(() => {
+        if (isAnimating) {
+          measureSyndromeAndCorrect();
+          // Finish
+          setTimeout(() => {
+            if (isAnimating) {
+              stopAnim();
+              dom.infoMsg.innerHTML = '🎉 <b>自动演示完成！</b> 点击「重置」重新开始，或手动尝试不同错误注入';
+            }
+          }, getSpeed() * 2);
+        }
+      }, getSpeed());
+    }
+  }, getSpeed() * 3);
+}
+
+function stopAnim() {
+  isAnimating = false;
+  clearTimeout(animTimer);
+  const btn = document.getElementById('btn-auto');
+  btn.textContent = '▶ 自动演示';
+  btn.classList.remove('danger');
+}
+
+// =============================================
+//  SPEED
+// =============================================
+function getSpeed() {
+  const v = parseInt(document.getElementById('speed-slider').value);
+  return Math.max(150, 900 - (v - 1) * 75);
+}
+
+// =============================================
+//  INIT
+// =============================================
+resetAll();
+
+// Event listeners
+document.getElementById('btn-auto').addEventListener('click', autoDemo);
+document.getElementById('btn-reset').addEventListener('click', resetAll);
+document.getElementById('btn-correct').addEventListener('click', measureSyndromeAndCorrect);
+
+document.querySelectorAll('.error-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const q = parseInt(btn.dataset.qubit);
+    injectError(q);
+  });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.key === ' ') { e.preventDefault(); autoDemo(); }
+  if (e.key === 'r' || e.key === 'R') resetAll();
+  if (e.key === '1') injectError(0);
+  if (e.key === '2') injectError(1);
+  if (e.key === '3') injectError(2);
+  if (e.key === 'c' || e.key === 'C') measureSyndromeAndCorrect();
+});
+</script>
+</body>
+</html>
