@@ -211,6 +211,21 @@
     background: color-mix(in srgb, var(--accent) 25%, transparent);
   }
 
+  #pause-btn {
+    padding: 6px;
+    border-radius: 8px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--text-color);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    flex: 1;
+  }
+  #pause-btn:hover {
+    background: rgba(255,255,255,0.1);
+  }
+
   /* ---- Game Over overlay ---- */
   .overlay {
     position: absolute;
@@ -287,6 +302,10 @@
       <p>得分: <span id="final-score">0</span></p>
       <button id="restart-overlay-btn">重新开始</button>
     </div>
+    <div class="overlay" id="pause-overlay">
+      <h2 style="font-size:28px;letter-spacing:6px;">⏸ PAUSED</h2>
+      <p style="font-size:13px;color:rgba(255,255,255,0.4);">按 P 或点击继续</p>
+    </div>
   </div>
 
   <div class="side-panel">
@@ -325,8 +344,11 @@
         <button class="ctrl-btn" data-action="rotate">↻</button>
         <button class="ctrl-btn wide" data-action="drop">⤓ 落下</button>
       </div>
-      <button id="restart-btn">↺ 重新开始</button>
-      <div class="mobile-hint">键盘: ← → ↓ ↑旋转 空格落下</div>
+      <div style="display:flex;gap:4px;">
+        <button id="pause-btn">⏸ 暂停</button>
+        <button id="restart-btn" style="flex:1;">↺ 重置</button>
+      </div>
+      <div class="mobile-hint">键盘: ← → ↓ ↑旋转 空格落下 P暂停</div>
     </div>
   </div>
 </div>
@@ -936,6 +958,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') move(1);
   if (e.key === 'ArrowDown')  moveDown();
   if (e.key === 'ArrowUp')    rotate();
+  if (e.key === 'p' || e.key === 'P') togglePause();
 });
 
 // =============================================
@@ -954,6 +977,22 @@ document.querySelectorAll('.ctrl-btn[data-action]').forEach(btn => {
 
 document.getElementById('restart-btn').addEventListener('click', restart);
 document.getElementById('restart-overlay-btn').addEventListener('click', restart);
+
+// =============================================
+//  PAUSE
+// =============================================
+const pauseOverlay = document.getElementById('pause-overlay');
+const pauseBtn = document.getElementById('pause-btn');
+
+function togglePause() {
+  if (gameOver) return;
+  paused = !paused;
+  pauseOverlay.classList.toggle('show', paused);
+  pauseBtn.textContent = paused ? '▶ 继续' : '⏸ 暂停';
+}
+
+pauseBtn.addEventListener('click', togglePause);
+pauseOverlay.addEventListener('click', togglePause);
 
 // =============================================
 //  POLYFILL roundRect
