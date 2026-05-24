@@ -42,7 +42,7 @@
   .game-wrapper {
     display: flex;
     gap: 16px;
-    align-items: flex-start;
+    align-items: stretch;
     background: var(--panel-bg);
     backdrop-filter: blur(12px);
     padding: 14px 20px;
@@ -79,6 +79,7 @@
     flex-direction: column;
     gap: 8px;
     min-width: 120px;
+    justify-content: space-between;
   }
 
   .panel-box {
@@ -156,7 +157,6 @@
 
   /* ---- Controls ---- */
   .controls {
-    margin-top: 2px;
     display: flex;
     flex-direction: column;
     gap: 3px;
@@ -820,22 +820,18 @@ function calcCellSize() {
   CELL = Math.max(14, Math.min(34, maxCell));
 }
 
-function handleResize() {
-  const oldCell = CELL;
+function fitToViewport() {
   calcCellSize();
-  if (CELL !== oldCell) {
-    // Update next canvas size
-    const previewCell = Math.round(CELL * 0.85);
-    const canvasSz = previewCell * 4 + 10;
-    nextCanvas.width = canvasSz;
-    nextCanvas.height = canvasSz;
-
-    renderBoard();
-    drawNext();
-  }
+  const previewCell = Math.round(CELL * 0.85);
+  const canvasSz = previewCell * 4 + 10;
+  nextCanvas.width = canvasSz;
+  nextCanvas.height = canvasSz;
+  renderBoard();
+  drawNext();
 }
 
-window.addEventListener('resize', handleResize);
+window.addEventListener('resize', fitToViewport);
+window.addEventListener('load', fitToViewport);
 
 // =============================================
 //  NEXT PREVIEW
@@ -843,13 +839,12 @@ window.addEventListener('resize', handleResize);
 function drawNext() {
   const previewCell = Math.round(CELL * 0.85);
   const canvasSz = previewCell * 4 + 10;
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.clearRect(0, 0, canvasSz, canvasSz);
   if (!next) return;
   const mat = next.matrix;
   const color = COLORS[next.name];
-  const previewCell = 24;
-  const offsetX = (120 - mat[0].length * previewCell) / 2;
-  const offsetY = (120 - mat.length * previewCell) / 2;
+  const offsetX = (canvasSz - mat[0].length * previewCell) / 2;
+  const offsetY = (canvasSz - mat.length * previewCell) / 2;
 
   const light  = lighten(color, 0.55);
   const dark   = darken(color, 0.40);
