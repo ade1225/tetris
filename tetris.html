@@ -68,8 +68,6 @@
   }
 
   .cell {
-    width: 26px;
-    height: 26px;
     border: 1px solid rgba(0,0,0,0.15);
     transition: background 0.06s;
     border-radius: 2px;
@@ -153,8 +151,7 @@
     display: block;
     margin: 0 auto;
     background: transparent;
-    width: 84px !important;
-    height: 84px !important;
+    max-width: 100%;
   }
 
   /* ---- Controls ---- */
@@ -273,7 +270,7 @@
       padding: 10px;
       gap: 8px;
     }
-    .cell { width: 20px; height: 20px; border-radius: 1px; }
+    .cell { border-radius: 1px; }
     .side-panel { flex-direction: row; flex-wrap: wrap; justify-content: center; min-width: auto; gap: 4px; }
     .panel-box { padding: 4px 8px; }
     .controls { display: none; }
@@ -462,7 +459,7 @@ const THEME_NAMES = Object.keys(THEMES);
 // =============================================
 const COLS = 10;
 const ROWS = 20;
-const CELL = 26;
+let CELL = 26;
 
 const SHAPES = {
   I: [[1,1,1,1]],
@@ -814,8 +811,39 @@ function hardDrop() {
 // =============================================
 //  NEXT PREVIEW
 // =============================================
+// =============================================
+//  RESPONSIVE SIZING
+// =============================================
+function calcCellSize() {
+  const availH = window.innerHeight - 40;
+  const maxCell = Math.floor((availH - 10) / ROWS);
+  CELL = Math.max(14, Math.min(34, maxCell));
+}
+
+function handleResize() {
+  const oldCell = CELL;
+  calcCellSize();
+  if (CELL !== oldCell) {
+    // Update next canvas size
+    const previewCell = Math.round(CELL * 0.85);
+    const canvasSz = previewCell * 4 + 10;
+    nextCanvas.width = canvasSz;
+    nextCanvas.height = canvasSz;
+
+    renderBoard();
+    drawNext();
+  }
+}
+
+window.addEventListener('resize', handleResize);
+
+// =============================================
+//  NEXT PREVIEW
+// =============================================
 function drawNext() {
-  ctx.clearRect(0, 0, 120, 120);
+  const previewCell = Math.round(CELL * 0.85);
+  const canvasSz = previewCell * 4 + 10;
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   if (!next) return;
   const mat = next.matrix;
   const color = COLORS[next.name];
@@ -834,6 +862,7 @@ function drawNext() {
         const y = offsetY + r * previewCell;
         const w = previewCell - 2;
         const h = previewCell - 2;
+        const r2 = Math.max(2, Math.round(w * 0.15));
 
         // 3D gradient fill
         const grad = ctx.createLinearGradient(x, y, x + w, y + h);
@@ -864,7 +893,7 @@ function drawNext() {
         ctx.shadowBlur = 10;
         ctx.strokeStyle = 'transparent';
         ctx.beginPath();
-        ctx.roundRect(x, y, w, h, 4);
+        ctx.roundRect(x, y, w, h, r2);
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
@@ -887,6 +916,8 @@ function updateStats() {
 function restart() {
   gameOver = false;
   overlay.classList.remove('show');
+  calcCellSize();
+  handleResize();
   board = createBoard();
   score = 0;
   lines = 0;
